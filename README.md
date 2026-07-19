@@ -1,30 +1,29 @@
-[README.md](https://github.com/user-attachments/files/30165232/README.md)
 # Atobi Content Engine
 
 Claude skills that turn brand source material into published learning content on the Atobi platform — in each brand's own voice, with knowledge checks, ready for store staff.
 
-This repository is the source of truth for the `ce-*` skill library and the operator documentation. Skills are authored here, packaged as zips, and installed by content managers in Claude Desktop.
+This repository is the source of truth for the `ce-*` skill library. Skills are authored here and sync straight from GitHub into each operator's Claude skills folder (`~/.claude/skills/`) — clone once, and an automatic pull keeps them current. See **[Automatic sync](#automatic-sync)** below.
 
 ---
 
 ## What's in here
 
-```
-skills/
-├── ce-asset-intake/              Brand PDFs → structured, searchable extracts
-├── ce-brand-voice/               Authors/refreshes the brand voice triplet
-├── ce-learning-article-creator/  Creates training articles & journeys on-platform
-├── ce-article-producer/          Writes markdown articles to Drive for review
-├── ce-quiz-generator/            Knowledge checks and assessment actions
-├── ce-feed-post-branded/         Composes and publishes brand-voiced feed posts
-├── ce-feed-post/                 Bare wiring test for the MCP → backend path
-├── ce-review/                    Independent brand-compliance audit before publish
-├── ce-update-article/            Safe fetch → merge → write edits to live articles
-├── ce-reporting/                 Post-publish performance report (the loop-closer)
-└── ce-remember/                  Captures standing operator preferences to memory
+Each `ce-*` skill lives at the repo root:
 
-docs/
-└── content-engine-operator-guide.html   Operator guide v1.0 — start here if you're a content manager
+```
+ce-asset-intake/              Brand PDFs → structured, searchable extracts
+ce-brand-voice/               Authors/refreshes the brand voice triplet
+ce-learning-article-creator/  Creates training articles & journeys on-platform
+ce-article-producer/          Writes markdown articles to Drive for review
+ce-quiz-generator/            Knowledge checks and assessment actions
+ce-feed-post-branded/         Composes and publishes brand-voiced feed posts
+ce-feed-post/                 Bare wiring test for the MCP → backend path
+ce-review/                    Independent brand-compliance audit before publish
+ce-update-article/            Safe fetch → merge → write edits to live articles
+ce-reporting/                 Post-publish performance report (the loop-closer)
+ce-remember/                  Captures standing operator preferences to memory
+
+install.sh · sync.sh · uninstall.sh   Git-based sync into ~/.claude/skills
 ```
 
 Every skill folder contains a `SKILL.md` (the instructions Claude follows) and a `manifest.yaml` (id, version, required scopes, MCP tools, inputs).
@@ -58,20 +57,47 @@ programs/<program>/drops/<slug>/   Article artefacts, reviews, published.yaml ba
 
 ## For operators
 
-Read `docs/content-engine-operator-guide.html` — it covers connecting the Atobi connector, installing the skills, the seven workflows, and troubleshooting.
+Two things to set up: the Atobi connector, and the skills.
 
-Setup in short:
+1. **Connect the tenant.** In Claude (Desktop → **Settings → Connectors**, or Claude Code via `claude mcp`), connect the Atobi Production MCP Server, signing in on the tenant you manage.
+2. **Verify** with `"Verify my Atobi connection"` and confirm the tenant in the reply before creating anything.
+3. **Install the skills** — clone once and run the installer; they link in and stay synced automatically:
 
-1. Claude Desktop → **Settings → Connectors** → connect the Atobi Production MCP Server, signing in on the tenant you manage.
-2. Verify with `"Verify my Atobi connection"` and confirm the tenant in the reply before creating anything.
-3. **Settings → Skills → Add → Upload a skill** for each `ce-*` zip.
+   ```bash
+   gh repo clone atobi-io/Atobi-Content-Engine ~/.claude/atobi-content-engine
+   ~/.claude/atobi-content-engine/install.sh
+   ```
+
+Then work the golden path above.
+
+## Automatic sync
+
+The skills sync straight from this repo into `~/.claude/skills/` — no zip upload, no manual copy. Clone once and run the installer:
+
+```bash
+gh repo clone atobi-io/Atobi-Content-Engine ~/.claude/atobi-content-engine
+~/.claude/atobi-content-engine/install.sh
+```
+
+That symlinks every `ce-*` skill into your Claude skills folder and schedules a background pull (launchd on macOS, cron on Linux) so new and updated skills appear automatically. Default interval is 30 min; override with `SYNC_INTERVAL=3600 ./install.sh` (seconds).
+
+- `sync.sh` — pulls latest and re-links skills. Runs on the schedule; safe to run by hand any time.
+- `install.sh` — one-time setup: initial sync + schedule the job.
+- `uninstall.sh` — removes the schedule and the `ce-*` symlinks (leaves your clone in place).
+
+The sync only ever touches `ce-*` symlinks that point into this repo — it never clobbers a real folder or another skill. Logs go to `.sync.log` in the clone.
+
+> Sync requires Claude Code (it reads `~/.claude/skills/`). Claude Desktop can't pull from GitHub; if you're on Desktop, upload each `ce-*` folder as a skill zip (`SKILL.md` at the zip root) via **Settings → Skills → Add**.
 
 ## For maintainers
 
-Each skill folder zips as-is — the zip root must contain `SKILL.md`, not a wrapper directory.
+Authoring is git: edit a skill, commit, push. Every operator's scheduled `sync.sh` picks up the change on its next pull — nothing to package or redistribute.
 
 ```bash
-cd skills && for d in ce-*/; do zip -r "../dist/${d%/}.zip" "$d" -x '*.DS_Store'; done
+# in your clone
+git pull
+# edit ce-<skill>/SKILL.md (and manifest.yaml), then:
+git add ce-<skill> && git commit -m "…" && git push
 ```
 
 Conventions:
