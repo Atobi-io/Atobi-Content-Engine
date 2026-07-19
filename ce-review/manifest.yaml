@@ -1,0 +1,60 @@
+id: ce-review
+version: 0.1.0
+owner: atobi-content-engine
+description: |
+  Independent brand-compliance review of produced content — a Drive drop
+  article or a live Atobi article — before human review or publish. Re-loads
+  the brand's voice profile, fidelity rules, glossary, and memory playbook
+  from source (never trusting the producer's own summary) and audits the
+  content line-by-line across five dimensions: fidelity, factual grounding,
+  voice, audience fit, and structure/quiz quality. Produces a severity-tagged
+  findings report (Critical/High/Medium/Low/Info) with an overall
+  pass / pass-with-notes / fail verdict. Report-only: fixes go back through
+  the producer or ce-update-article. Triggers on phrases like
+  "review the <slug> drop", "check article <id> against the <brand> voice",
+  "run brand compliance on this before it ships".
+
+scopes:
+  - atobi-mcp:admin              # gdrive_* and memory tools are gated by this scope
+tools:
+  - gdrive_find_by_path          # resolve foundation/brands/<brand>/ files and the drop under review
+  - gdrive_list_folder           # locate drops / discover brands
+  - gdrive_search_files          # find source extracts backing the content's claims
+  - gdrive_read_file             # load the content, voice triplet, and extracts
+  - gdrive_upload_file           # save the review report next to a Drive drop
+  - gdrive_trash_file            # replace a prior review report for the same drop
+  - gcs_get_article              # load a live Atobi article (with blocks/actions) for review
+  - search_memory                # brand playbook — Locked bullets are review criteria
+  - store_memory                 # append the review event + recurring-violation signals
+runtime:
+  - claude-code
+inputs:
+  target:
+    type: string
+    optional: true
+    description: |
+      What to review: a drop slug or Drive path (e.g.
+      "programs/<program>/drops/<slug>/") for markdown drops, or a numeric
+      Atobi article id for live articles. If omitted, the skill asks — it
+      never guesses which content the operator means.
+  brand:
+    type: string
+    optional: true
+    description: |
+      Brand slug — matches foundation/brands/<brand>/. Usually inferable from the
+      drop's front matter or article context; the skill confirms an inferred
+      brand before auditing against its rules.
+  dimensions:
+    type: string
+    optional: true
+    description: |
+      Comma-separated subset of the five dimensions to run
+      (fidelity, grounding, voice, audience, structure).
+      Default: all five.
+  save_report:
+    type: boolean
+    optional: true
+    description: |
+      Save the findings report as review.md inside the drop folder (Drive
+      drops only). Defaults to true for drops, not applicable to live
+      articles (report stays in chat).

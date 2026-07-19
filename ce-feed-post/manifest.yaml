@@ -1,0 +1,27 @@
+id: ce-feed-post
+version: 0.1.0
+owner: content-engine
+description: |
+  Post a feed post into a specific Atobi tenant via the atobi-mcp server.
+  Test skill — validates the Claude Code → atobi-mcp → backend wiring end-to-end
+  by performing a real write against a target tenant. Use to confirm a tenant
+  token (or admin-on-tenant exchange) is working before building richer content
+  skills on top.
+
+scopes:
+  - atobi-mcp:write              # TODO confirm scope name once identity-server exports it
+tools:
+  - post_feed_post               # TODO confirm exact MCP tool name exposed by atobi-mcp
+runtime:
+  - claude-code
+inputs:
+  tenant_id:
+    type: string
+    description: Target tenant the post lands in. Required — feed posts are tenant-scoped.
+  body:
+    type: string
+    description: Feed post body (markdown or plain text, depending on what the backend accepts).
+  title:
+    type: string
+    optional: true
+    description: Optional title / headline shown above the body.

@@ -1,0 +1,114 @@
+id: ce-learning-article-creator
+version: 0.5.0
+owner: atobi-content-engine
+description: |
+  Create a single, highly engaging training or learning article directly on the
+  Atobi platform via the GCS API. Decides between a Journey (shownAs: training)
+  and a regular article (shownAs: article), loads brand voice + publisher voice
+  from Drive when present, and assembles a block-tree payload (text / image /
+  multi_choice / yes_no_task / open_question_task / simple_task). If publishing
+  immediately, fetches channels and audiences and asks the operator to pick the
+  exact channel + audience set before writing. Triggers on phrases like
+  "create a training article on X", "build a learning module about Y",
+  "make a journey on Z", "create a knowledge check for staff on W".
+
+scopes:
+  - atobi-mcp:admin              # gdrive_* tools are admin-scoped; also required for store_memory / search_memory (CANONICAL §4)
+  - atobi-mcp:write              # gcs_create_article, gcs_list_channels, us_list_audiences
+tools:
+  - gdrive_find_by_path          # check for brand-voice / publisher-voice md files; resolve the drop folder
+  - gdrive_read_file             # load voice profiles when present
+  - gdrive_list_folder           # enumerate brands under foundation/brands/
+  - gdrive_create_folder         # create the drop folder chain when `drop` names one that doesn't exist yet (confirmed)
+  - gdrive_upload_file           # write published.yaml into the drop folder (Step 7b backlink)
+  - gdrive_trash_file            # replace a prior published.yaml on re-publish
+  - gcs_list_channels            # fetch channel ids when publishing now
+  - gcs_get_channel              # inspect viewerAudiences for feed-channel intersection check
+  - us_list_audiences            # fetch audience ids when publishing now
+  - gcs_create_article           # create the article on the Atobi platform
+  - search_memory                # Step 0 — load the brand knowledge playbook + pull recent insights for promotion
+  - update_memory                # Step 0b — merge promoted signal into the existing brand playbook in place
+  - store_memory                 # Step 0b seed playbook (knowledge) + Step 9 append events/preferences (insight)
+  - list_memory                  # Step 0b — optional browse of recent brand insights
+runtime:
+  - claude-code
+inputs:
+  topic:
+    type: string
+    description: |
+      What staff should learn or be able to do after reading this. Required.
+      One clear skill or knowledge area — if it covers multiple, the skill
+      will ask the user to narrow it or to split into multiple articles.
+  brand:
+    type: string
+    optional: true
+    description: |
+      Brand slug — matches foundation/brands/<brand>/ at the Shared Drive root.
+      Optional. If omitted, the skill lists brands under foundation/brands/
+      and either picks the only one, asks the user to choose, or fails clearly.
+  audience_description:
+    type: string
+    optional: true
+    description: |
+      Free-form description of who this is for — role, experience level,
+      context. Defaults to "retail staff". Used to shape register and examples;
+      NOT the same as the Atobi `audiences` list (those are platform audience
+      IDs picked at publish time).
+  archetype:
+    type: string
+    optional: true
+    description: |
+      Article archetype — determines section template, formatting density,
+      quiz role, and shownAs. One of: "product-launch" (new product with a
+      campaign / Early-Access window), "refresh" (new generation of an
+      existing product, no campaign window), "family-series" (overview of
+      a product family / line — 1 family-overview section + 1 per product
+      variant), "educational" (concept-driven upskill, not product-tied),
+      "campaign-awareness" (partnership / community / seasonal —
+      shownAs:"article", no completion), "compliance" (mandatory
+      policy/process training), or "auto". When foundation/publisher/voice-profile.md
+      is present (Layer 1 voice), the archetype drives the section
+      template used in Step 5. If omitted, Step 1 asks the operator.
+  format:
+    type: string
+    optional: true
+    description: |
+      "training" (Journey — sequential, must-complete-in-order), "article"
+      (any-order reference reading), or "auto" (let the skill derive from
+      archetype). Defaults to "auto". Usually derived from archetype
+      (launch/refresh/educational/compliance → training; campaign-awareness
+      → article); only override when the operator explicitly needs the
+      other shownAs.
+  status:
+    type: string
+    optional: true
+    description: |
+      "draft" or "published". Defaults to "draft". When "published", the skill
+      MUST resolve a channel + at least one audience before calling
+      gcs_create_article (see Step 1 / Step 6).
+  channel_id:
+    type: number
+    optional: true
+    description: |
+      Pre-selected channel id. Only consulted when status="published". If
+      omitted (and publishing), the skill calls gcs_list_channels and asks
+      the operator which channel to publish into.
+  audience_ids:
+    type: array
+    optional: true
+    description: |
+      Pre-selected audience ids (array of numbers). Only consulted when
+      status="published". If omitted (and publishing), the skill calls
+      us_list_audiences and asks the operator which audiences to publish to —
+      at least one is required.
+  drop:
+    type: string
+    optional: true
+    description: |
+      Program drop this article belongs to — either a full Drive path
+      ("programs/<program>/drops/<slug>/") or the "<program>/<slug>"
+      shorthand. When given, Step 7b writes a published.yaml backlink
+      (article id, shownAs, status, channel/audiences, date) into that
+      drop folder after gcs_create_article succeeds, linking the Drive
+      artefact trail to the live article so ce-reporting's program: mode
+      can measure it. Omitted → no Drive write happens (previous behaviour).

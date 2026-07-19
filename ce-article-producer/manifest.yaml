@@ -1,0 +1,60 @@
+id: ce-article-producer
+version: 0.2.0
+owner: atobi-content-engine
+description: |
+  Produce a brand-voiced markdown article for a specific brand inside this
+  Publisher's content engine. Loads the brand voice profile (and any seeded
+  fidelity / glossary) from foundation/brands/<brand>/, generates the article
+  in the loaded voice, and saves the output to programs/<program>/drops/<slug>/.
+  foundation/ lives at the Shared Drive root (shared across workspace engines);
+  program outputs are engine-relative under the Publisher's content-engine folder.
+  Optionally auto-calls ce-quiz-generator. Triggers on
+  phrases like "write an article about X for <brand>", "produce article for <brand>".
+
+scopes:
+  - atobi-mcp:admin              # gdrive_* and memory tools are gated by this scope
+tools:
+  - gdrive_find_by_path          # resolve customers/<tenant>/_corpus/... paths
+  - gdrive_read_file             # load style guide + product/context files
+  - gdrive_search_files          # discover product sheets when topic is given
+  - gdrive_list_folder           # enumerate brand corpus contents
+  - gdrive_create_folder         # build the _generated/ output path
+  - gdrive_upload_file           # save the article
+  - search_memory                # load the brand playbook + recent insights (Step 2b)
+  - store_memory                 # append creation event / voiced preferences (Step 11); seed a playbook
+  - update_memory                # merge promoted insights into the playbook (Step 2b-ii)
+runtime:
+  - claude-code
+inputs:
+  brand:
+    type: string
+    optional: true
+    description: |
+      Brand slug — matches foundation/brands/<brand>/ at the Shared Drive root.
+      Optional — if omitted, the skill lists brands at foundation/brands/ and
+      picks the single brand automatically (1), asks the user to choose (2+),
+      or fails clearly (0). If supplied but not found, the skill lists
+      available brands and asks which was meant.
+  topic:
+    type: string
+    description: What the article should be about — a product, a season, a campaign, a concept. Free-form.
+  program:
+    type: string
+    optional: true
+    description: |
+      Program slug under programs/. Defaults to "_adhoc" for one-off articles
+      not part of a coordinated arc. Real programs would be like
+      "hoka-2026-spring-launch". The drop is saved at
+      programs/<program>/drops/<slug>/<slug>.md.
+  audience:
+    type: string
+    optional: true
+    description: Target reader. Defaults to "retail staff". Affects register (per the brand style guide's audience table).
+  length:
+    type: string
+    optional: true
+    description: Target length hint ("short" ~300 words, "standard" ~600, "long" ~1000). Defaults to "standard".
+  include_quizzes:
+    type: boolean
+    optional: true
+    description: If true, auto-call ce-quiz-generator and embed the result. Defaults to false.

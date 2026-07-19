@@ -1,0 +1,66 @@
+id: ce-reporting
+version: 0.1.0
+owner: atobi-content-engine
+description: |
+  Post-publish performance report for Atobi content — one article or a set
+  (program / brand / timeframe). Publication check, reach and completion
+  against the real audience denominator, knowledge-check pass rates with
+  per-question analysis (distinguishing content gaps from badly-written
+  questions), engagement signals mined from comments, and a
+  feedback-to-next-brief section captured to memory so the next production
+  run starts smarter. Aggregate numbers by default — individual staff data
+  only on explicit request, chat-only. This is CaaS Step 8, the loop-closer.
+  Triggers on phrases like "how did <article/journey> perform",
+  "completion report for <brand>", "quiz pass rates for <program>".
+
+scopes:
+  - atobi-mcp:admin              # gdrive_*, us_*, and memory tools are gated by this scope
+tools:
+  - gcs_get_article              # publication check: state, channel, audience, shownAs
+  - gcs_list_articles            # resolve brand/timeframe targets to article ids
+  - gcs_get_action_answers       # per-action submitted answers — distinct submitters = completed set
+  - gcs_get_action_instances     # resolve the relevant instance of a recurring action
+  - gcs_get_action_answer_summary # aggregate quiz results per multi_choice action
+  - gcs_list_comments            # engagement + content-gap questions staff asked
+  - gcs_list_reactions           # engagement counts
+  - us_get_audience              # resolve the targeted audience
+  - us_list_audience_users       # audience size — the honest denominator
+  - gdrive_find_by_path          # locate the program/drop folder for the saved report
+  - gdrive_list_folder           # enumerate program drops; find a prior report to replace
+  - gdrive_read_file             # read drop files for recorded article ids
+  - gdrive_create_folder         # create the reports location when missing
+  - gdrive_upload_file           # save the markdown report
+  - gdrive_trash_file            # replace a prior report for the same target+period
+  - send_slack_message           # optional summary post — only after explicit confirmation
+  - search_memory                # prior reports for trend comparison
+  - store_memory                 # feedback-to-next-brief insights
+runtime:
+  - claude-code
+inputs:
+  target:
+    type: string
+    optional: true
+    description: |
+      What to report on: a numeric article id, a comma-separated id list,
+      or "brand:<slug>" / "program:<slug>" (resolved via gcs_list_articles
+      + the program's drops). If omitted, the skill asks.
+  since:
+    type: string
+    optional: true
+    description: |
+      Reporting window start (ISO date or "30d"-style). Defaults to 30d
+      when resolving brand:/program: targets; for explicit article ids,
+      defaults to the oldest target's publication date.
+  include_individuals:
+    type: boolean
+    optional: true
+    description: |
+      Include per-user completion lists (e.g. for manager follow-up).
+      Defaults to false. Individual data is chat-only — never written into
+      the Drive report or Slack summary.
+  slack_channel:
+    type: string
+    optional: true
+    description: |
+      Channel to post the summary to. Even when provided, the skill shows
+      the exact message and asks before posting.

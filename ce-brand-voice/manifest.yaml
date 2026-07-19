@@ -1,0 +1,61 @@
+id: ce-brand-voice
+version: 0.1.0
+owner: atobi-content-engine
+description: |
+  Author or refresh the brand voice triplet in foundation/brands/<brand>/ —
+  voice-profile.md (required, using the 10-section template in
+  references/), fidelity-rules.md and glossary.md (when the
+  evidence supports them). Researches the brand's live Atobi tenant
+  (read-only), website and social media, plus Drive source material and
+  accumulated memory corrections, then fills the gaps with a short operator
+  interview — every entry carries a provenance stamp, and nothing uploads
+  without operator sign-off. This is the onboarding gate for new brands:
+  producers refuse to write without a voice profile. Triggers on phrases like
+  "onboard <brand>'s voice", "create a voice profile for <brand>",
+  "refresh the <brand> voice profile".
+
+scopes:
+  - atobi-mcp:admin              # gdrive_* and memory tools are gated by this scope
+tools:
+  - gdrive_find_by_path          # resolve foundation/brands/<brand>/ and the triplet files
+  - gdrive_list_folder           # enumerate brands / source material
+  - gdrive_search_files          # find brand-book / tone-of-voice docs in source material
+  - gdrive_read_file             # load guideline docs, extracts, existing triplet
+  - gdrive_create_folder         # create foundation/brands/<brand>/ for a brand-new brand (confirmed)
+  - gdrive_upload_file           # save the triplet files
+  - gdrive_trash_file            # soft-delete prior versions before re-upload
+  - verify_connection            # confirm which tenant the MCP session is bound to before tenant research
+  - gcs_list_channels            # tenant research (read-only): channel names
+  - gcs_list_articles            # tenant research (read-only): titles, formats, named series
+  - gcs_get_article              # tenant research (read-only): representative content
+  - gcs_list_comments            # tenant research (read-only): engagement triggers
+  - rc_list_achievements         # tenant research (read-only): badge naming, reward mechanics
+  - search_memory                # brand playbook + insights — operator corrections are voice evidence
+  - store_memory                 # append the authoring/refresh event to the insight stream
+# Website/social research uses the Claude Code harness tools (WebFetch/WebSearch),
+# which are not MCP tools and therefore not listed here.
+runtime:
+  - claude-code
+inputs:
+  brand:
+    type: string
+    optional: true
+    description: |
+      Brand slug — matches foundation/brands/<brand>/ at the Shared Drive root.
+      Optional — if omitted, the skill lists brands at foundation/brands/ and asks.
+      For a brand with no folder yet (fresh onboarding), the skill creates
+      foundation/brands/<brand>/ after explicit confirmation.
+  sources:
+    type: string
+    optional: true
+    description: |
+      Comma-separated file names (or fragments) pointing at the brand's own
+      voice/brand-book documents, when the operator knows exactly which files
+      carry the voice. Default: discovered by search in source-material/.
+  refresh_focus:
+    type: string
+    optional: true
+    description: |
+      When refreshing an existing profile, an optional focus ("tone section",
+      "forbidden phrases", "glossary only") to scope the update instead of
+      re-deriving the whole triplet.

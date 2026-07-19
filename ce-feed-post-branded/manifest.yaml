@@ -1,0 +1,53 @@
+id: ce-feed-post-branded
+version: 0.2.0
+owner: atobi-content-engine
+description: |
+  Compose and publish a feed post in a brand's voice. Given a brand + topic/brief,
+  looks up the brand voice profile at foundation/brands/<brand>/voice-profile.md
+  (foundation/ lives at the Shared Drive root, shared across workspace engines —
+  the deployment's GDRIVE_DEFAULT_ROOT_ID points there), generates the post body in that voice,
+  then posts via post_feed_post. Use when asked "post about X for <brand>",
+  "publish a feed update for <brand>". Differs from ce-feed-post (the bare
+  wiring-test skill) by composing branded content end-to-end rather than relaying
+  user-supplied body verbatim.
+
+scopes:
+  - atobi-mcp:admin              # gdrive_* and memory tools are admin-scoped
+  - atobi-mcp:write              # TODO confirm scope name for post_feed_post once identity-server exports it
+tools:
+  - gdrive_find_by_path          # locate the brand style guide / brands folder
+  - gdrive_list_folder           # enumerate brands under a tenant when brand not specified
+  - gdrive_read_file             # load style guide content
+  - post_feed_post               # the actual publish
+  - search_memory                # load the brand playbook, read-only (Step 3b)
+  - store_memory                 # append publish event / voiced preferences (Step 8)
+runtime:
+  - claude-code
+inputs:
+  tenant:
+    type: string
+    description: |
+      Atobi tenant slug — passed to post_feed_post to tell the backend which
+      tenant the post lands in. Note: in an engine-per-publisher world this
+      will eventually come from foundation/publisher/publisher-commercial-config.yaml,
+      but until that artefact exists the skill still takes it as input.
+  brand:
+    type: string
+    optional: true
+    description: |
+      Brand slug — matches foundation/brands/<brand>/ at the Shared Drive root.
+      Optional — if omitted, the skill lists brands at foundation/brands/ and
+      picks the single brand automatically (1), asks the user to choose (2+),
+      or fails clearly (0). If supplied but not found, the skill lists
+      available brands and asks which was meant.
+  topic:
+    type: string
+    description: What the post is about — a product launch, a season hook, a behind-the-scenes note. Free-form brief.
+  length:
+    type: string
+    optional: true
+    description: Target length ("short" ~50 words, "standard" ~120, "long" ~250). Defaults to "standard". Feed posts are short by design.
+  title:
+    type: string
+    optional: true
+    description: Optional title/headline shown above the body. Often omitted for feed posts.

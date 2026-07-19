@@ -1,0 +1,59 @@
+id: ce-asset-intake
+version: 0.2.0
+owner: atobi-content-engine
+description: |
+  Normalize raw brand assets (PDF product sheets, campaign decks, spec docs)
+  from foundation/brands/<brand>/source-material/ into structured, searchable
+  markdown extracts saved next to the originals, plus an intake index tracking
+  what has been processed. Extracts are what the producer skills
+  (ce-article-producer, ce-learning-article-creator) actually find and load —
+  raw image-heavy PDFs often aren't fullText-searchable in Drive. Binary
+  formats (PDF, docx, pptx) can't be read via gdrive_read_file (metadata
+  only) — the primary read path is an operator-supplied copy (attachment in
+  Claude Desktop, local path in Claude Code) read with Claude's native
+  document processing; large PDFs split across parallel page-range readers.
+  A Google-Docs conversion copy in Drive is the fallback; otherwise the
+  asset is flagged needs-source rather than guessed at. Extracts always
+  stamp the original Drive asset's id/modifiedTime, so idempotency keys on
+  Drive regardless of read path. Idempotent: re-runs only process new or
+  changed source files. Triggers on phrases like
+  "process the new <brand> PDFs", "intake the assets for <brand>",
+  "ingest brand source material".
+
+scopes:
+  - atobi-mcp:admin              # gdrive_* and memory tools are gated by this scope
+tools:
+  - gdrive_find_by_path          # resolve foundation/brands/<brand>/source-material
+  - gdrive_list_folder           # enumerate raw assets + existing extracts
+  - gdrive_search_files          # narrow to specific files when `files` input given
+  - gdrive_read_file             # load each raw asset + the intake index
+  - gdrive_create_folder         # create source-material/ if the brand has none yet
+  - gdrive_upload_file           # save extracts + the intake index
+  - gdrive_trash_file            # soft-delete a stale extract before re-upload
+  - search_memory                # recall prior intake runs / brand playbook (best-effort)
+  - store_memory                 # append the intake event to the insight stream
+runtime:
+  - claude-code
+inputs:
+  brand:
+    type: string
+    optional: true
+    description: |
+      Brand slug — matches foundation/brands/<brand>/ at the Shared Drive root.
+      Optional — if omitted, the skill lists brands at foundation/brands/ and
+      picks the single brand automatically (1), asks the user to choose (2+),
+      or fails clearly (0). If supplied but not found, the skill lists
+      available brands and asks which was meant.
+  files:
+    type: string
+    optional: true
+    description: |
+      Comma-separated file names (or name fragments) to restrict the run to.
+      Default: every unprocessed or changed asset in source-material/.
+  force:
+    type: boolean
+    optional: true
+    description: |
+      Re-extract even when the intake index says a source file is unchanged.
+      Defaults to false. Use after improving extraction quality or when an
+      extract was hand-edited into a bad state.

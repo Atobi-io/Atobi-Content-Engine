@@ -1,0 +1,66 @@
+id: ce-update-article
+version: 0.1.1
+owner: atobi-content-engine
+description: |
+  Safely modify an existing Atobi article (created by ce-learning-article-creator
+  or otherwise) via the GCS API, and capture the operator's change + the reason
+  behind it to the memory event stream. The keystone feedback path: the moment an
+  operator says "change X" is the highest-signal moment to learn a brand preference.
+  Does a safe fetch -> merge -> write: gcs_update_article REPLACES the full block
+  list, so the skill fetches the current article, merges the change into that list,
+  and writes back with the updatedAt optimistic-concurrency token (re-fetch + re-merge
+  on 409). Appends one or more `insight` rows recording what changed and why, phrased
+  as general brand guidance. Capture-only — promotion of insights into the brand
+  knowledge playbook happens lazily at ce-learning-article-creator Step 0b (or a
+  future scheduled pass), not here. Triggers on phrases like "update article X",
+  "change the title of Y", "the Hoka launch article is too salesy, fix it",
+  "modify the journey on Z".
+
+scopes:
+  - atobi-mcp:admin              # gdrive_* (voice re-load) + store_memory / search_memory
+  - atobi-mcp:write              # gcs_update_article and the GCS reads
+tools:
+  - gcs_list_articles            # resolve an article by title/topic when no id is given
+  - gcs_get_article              # fetch the current block list + updatedAt token (REQUIRED before any write)
+  - gcs_update_article           # the write — replaces the full block list, so merge first
+  - gdrive_find_by_path          # best-effort: re-load brand voice for a voice-driven rewrite
+  - gdrive_read_file             # best-effort: read the voice profile when present
+  - search_memory                # best-effort: load the brand playbook so the edit stays on-brand
+  - store_memory                 # capture the change + reason as insight (the feedback firehose)
+runtime:
+  - claude-code
+inputs:
+  change:
+    type: string
+    description: |
+      What to change and how — the operator's instruction. Required. Free-form,
+      e.g. "make the title less salesy", "rewrite the intro to lead with the
+      consumer profile", "drop the exclamation marks", "add a knowledge-check
+      question on fit".
+  article_id:
+    type: number
+    optional: true
+    description: |
+      The Atobi article id to modify. If omitted, the skill resolves it from
+      `article_ref` via gcs_list_articles, or asks the operator.
+  article_ref:
+    type: string
+    optional: true
+    description: |
+      Title or topic to locate the article when `article_id` is unknown
+      (e.g. "the Ghost 18 launch journey"). The skill lists matches and
+      confirms before editing — it never edits an ambiguous match silently.
+  brand:
+    type: string
+    optional: true
+    description: |
+      Brand slug — matches foundation/brands/<brand>/. Used to load the brand
+      playbook (so the edit stays consistent) and to scope the captured insight.
+      If omitted, the skill infers it from the article or asks.
+  reason:
+    type: string
+    optional: true
+    description: |
+      Why the operator wants the change — the preference behind it. Captured to
+      memory as general brand guidance. If omitted, the skill infers it from the
+      `change` instruction and the conversation.

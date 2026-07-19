@@ -1,0 +1,15 @@
+id: ce-quiz-generator
+version: 0.1.0
+owner: content-engine
+description: |
+  Generate quiz questions, knowledge checks, and assessment actions for Atobi
+  content. Reads source material (articles, journeys, PDFs, product sheets) and
+  the brand-voice profile to produce scenario-based, role-appropriate questions
+  that test product knowledge and selling skill. Invoked directly or auto-called
+  by ce-article-producer / ce-journey-producer / ce-campaign-producer during
+  content production.
+
+scopes: []
+tools: []
+runtime:
+  - claude-code

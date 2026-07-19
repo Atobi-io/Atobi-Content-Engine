@@ -1,0 +1,41 @@
+id: ce-remember
+version: 0.1.1
+owner: atobi-content-engine
+description: |
+  Manual backstop for the content-engine learning loop: fold an operator's
+  explicitly-stated content preference into brand memory, any time, any session.
+  Covers feedback that never flowed through an article edit — a chat grumble, a
+  next-day "the last one was too long", a standing rule ("for Hoka, titles inform,
+  don't sell"). Either takes an explicit statement or extracts candidate
+  preferences from the recent conversation, ALWAYS confirms before writing, then
+  appends an `insight` row (history) AND promotes directly into the brand
+  `knowledge` playbook — because an explicit operator statement is itself the
+  durability signal, so it doesn't wait for the frequency-based promotion at
+  ce-learning-article-creator Step 0b. Triggers on "remember that ...",
+  "for <brand>, always/never ...", "note this preference", "/ce-remember".
+
+scopes:
+  - atobi-mcp:admin              # store_memory / search_memory / update_memory require admin
+tools:
+  - search_memory                # load the current brand playbook + check for existing/contradicting entries
+  - store_memory                 # append the raw preference as an insight (history) + seed a playbook if none
+  - update_memory                # merge the preference into the existing brand playbook in place
+runtime:
+  - claude-code
+inputs:
+  feedback:
+    type: string
+    optional: true
+    description: |
+      The preference to remember, stated plainly — e.g. "titles should inform,
+      not sell" or "always lead with the consumer profile". Optional. If omitted,
+      the skill extracts candidate preferences from the recent conversation and
+      asks the operator to confirm which to keep.
+  brand:
+    type: string
+    optional: true
+    description: |
+      Brand the preference applies to — matches foundation/brands/<brand>/. If
+      omitted, the skill infers it from context or asks. Use the special value
+      "house" (or confirm when asked) for an engine-wide preference that applies
+      across all brands rather than one.
