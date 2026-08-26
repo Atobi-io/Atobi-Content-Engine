@@ -1,0 +1,17 @@
+{
+  "name": "atobi-content-engine",
+  "description": "Claude skills that turn brand source material into published learning content on the Atobi platform — in each brand's own voice, with knowledge checks, ready for store staff.",
+  "owner": {
+    "name": "Atobi",
+    "email": "jul@atobi.io",
+    "url": "https://atobi.io"
+  },
+  "plugins": [
+    {
+      "name": "content-engine",
+      "source": "./",
+      "description": "Brand-voiced learning content pipeline for the Atobi platform — asset intake, brand voice profiles, article and journey production, quizzes, compliance review, publishing, and performance reporting.",
+      "version": "1.0.0"
+    }
+  ]
+}

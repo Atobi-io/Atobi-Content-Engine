@@ -28,7 +28,7 @@ A feed post is created in the target tenant's feed.
 
 | File | Load level | How it shapes this skill |
 |------|-----------|--------------------------|
-| `plugins/atobi-foundation/.mcp.json` | reference | Declares the atobi-mcp connection this skill calls into |
+| Atobi MCP Server connector | reference | The MCP connection this skill calls into — connect it in your client first (Claude: Settings → Connectors or `claude mcp`; other agents: their MCP config) |
 | User-supplied `tenant_id` | input | Which tenant the post lands in — required, no default |
 | User-supplied post `body` (and optional `title`) | input | The actual content posted |
 

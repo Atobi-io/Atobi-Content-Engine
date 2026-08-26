@@ -2,31 +2,14 @@
 
 Claude skills that turn brand source material into published learning content on the Atobi platform — in each brand's own voice, with knowledge checks, ready for store staff.
 
-This repository is the source of truth for the `ce-*` skill library. Skills are authored here and sync straight from GitHub into each operator's Claude skills folder (`~/.claude/skills/`) — clone once, and an automatic pull keeps them current. See **[Automatic sync](#automatic-sync)** below.
+> [!IMPORTANT]
+> These skills write to live Atobi tenants. Content is a draft until a human operator reviews it — skills that publish always confirm the channel and audience first, and never infer them. Everything here requires an **Atobi tenant** and the **Atobi MCP Server** connected in your client (see [MCP integration](#mcp-integration)); without those, the skills install but have nothing to act on.
 
----
+## What's in the repo
 
-## What's in here
-
-Each `ce-*` skill lives at the repo root:
-
-```
-ce-asset-intake/              Brand PDFs → structured, searchable extracts
-ce-brand-voice/               Authors/refreshes the brand voice triplet
-ce-learning-article-creator/  Creates training articles & journeys on-platform
-ce-article-producer/          Writes markdown articles to Drive for review
-ce-quiz-generator/            Knowledge checks and assessment actions
-ce-feed-post-branded/         Composes and publishes brand-voiced feed posts
-ce-feed-post/                 Bare wiring test for the MCP → backend path
-ce-review/                    Independent brand-compliance audit before publish
-ce-update-article/            Safe fetch → merge → write edits to live articles
-ce-reporting/                 Post-publish performance report (the loop-closer)
-ce-remember/                  Captures standing operator preferences to memory
-
-install.sh · sync.sh · uninstall.sh   Git-based sync into ~/.claude/skills
-```
-
-Every skill folder contains a `SKILL.md` (the instructions Claude follows) and a `manifest.yaml` (id, version, required scopes, MCP tools, inputs).
+- **One plugin, eleven skills** covering the full content pipeline: intake → voice → create → review → publish → report.
+- A **plugin marketplace** manifest, so Claude Code users install and update with two commands.
+- Skills in the open [Agent Skills](https://agentskills.io) `SKILL.md` format, so they also work in OpenAI Codex CLI, Cursor, Gemini CLI, and other agents that adopted the standard.
 
 ## The golden path
 
@@ -37,6 +20,127 @@ Every skill folder contains a `SKILL.md` (the instructions Claude follows) and a
 Steps 1–2 run once per brand and whenever new material arrives. For a brand already onboarded, operators start at step 3.
 
 Two things make the output trustworthy: content is grounded in extracted source material rather than model recall, and every brand has an approved voice profile before anything is produced — the producer skills refuse to guess a brand's voice.
+
+## Repository layout
+
+```
+.claude-plugin/
+  marketplace.json    Marketplace manifest — /plugin marketplace add points here
+  plugin.json         The content-engine plugin manifest (version lives here)
+skills/
+  ce-<skill>/         One folder per skill: SKILL.md (the instructions Claude
+                      follows) + manifest.yaml (internal docs: scopes, tools,
+                      inputs — not read by Claude)
+```
+
+## Getting started
+
+### Claude Code
+
+```bash
+claude plugin marketplace add atobi-io/Atobi-Content-Engine
+claude plugin install content-engine@atobi-content-engine
+```
+
+Updates arrive automatically when a new version is published — nothing to clone, no background jobs.
+
+### Claude Desktop / claude.ai
+
+Paste the repo URL (`https://github.com/atobi-io/Atobi-Content-Engine`) into the plugin picker, or upload a zip of any folder under `skills/` (with `SKILL.md` at the zip root) via **Settings → Skills → Add**. Team/Enterprise workspaces can distribute it through the organization plugin directory.
+
+### Other agents (open Agent Skills standard)
+
+The skills follow the open [Agent Skills](https://agentskills.io/specification) `SKILL.md` format, so any agent that adopted the standard can run them. The quickest cross-agent path is [Vercel's skills.sh installer](https://github.com/vercel-labs/skills), which discovers everything under `skills/` and fans out into each agent's own skills directory:
+
+```bash
+npx skills add atobi-io/Atobi-Content-Engine                    # all detected agents
+npx skills add atobi-io/Atobi-Content-Engine -a codex -a cursor # target specific agents
+npx skills add atobi-io/Atobi-Content-Engine -l                 # list skills without installing
+```
+
+Whichever agent you use, you also need the Atobi MCP Server (`https://mcp.atobi.io/mcp`) connected in it — the per-agent snippets below show where. Sign in on the tenant you manage when the OAuth flow opens.
+
+#### OpenAI Codex CLI
+
+Skills live in `~/.agents/skills/` (global) or `.agents/skills/` (project) — `npx skills add … -a codex` puts them there, or copy the folders manually. Connect the Atobi MCP server in `~/.codex/config.toml`, then sign in:
+
+```toml
+[mcp_servers.atobi]
+url = "https://mcp.atobi.io/mcp"
+```
+
+```bash
+codex mcp login atobi   # runs the OAuth flow
+```
+
+Docs: [Codex skills](https://developers.openai.com/codex/skills) · [Codex MCP](https://developers.openai.com/codex/mcp)
+
+#### Cursor
+
+Skills live in `~/.cursor/skills/` (global) or `.agents/skills/` / `.cursor/skills/` (project); Cursor also auto-loads `.claude/skills/`. Install via `npx skills add … -a cursor` or drop the folders in manually. Connect the Atobi MCP server in `~/.cursor/mcp.json` — Cursor opens the OAuth flow in your browser automatically:
+
+```json
+{
+  "mcpServers": {
+    "atobi": { "url": "https://mcp.atobi.io/mcp" }
+  }
+}
+```
+
+Docs: [Cursor skills](https://cursor.com/docs/skills) · [Cursor MCP](https://cursor.com/docs/context/mcp)
+
+#### Gemini CLI
+
+Gemini CLI has a native skills installer:
+
+```bash
+gemini skills install https://github.com/atobi-io/Atobi-Content-Engine.git
+# or a single skill:
+gemini skills install https://github.com/atobi-io/Atobi-Content-Engine.git --path skills/ce-review
+```
+
+Connect the Atobi MCP server in `~/.gemini/settings.json` (OAuth is discovered automatically for `httpUrl` servers):
+
+```json
+{
+  "mcpServers": {
+    "atobi": { "httpUrl": "https://mcp.atobi.io/mcp" }
+  }
+}
+```
+
+Docs: [Gemini CLI skills](https://geminicli.com/docs/cli/skills/) · [Gemini CLI MCP](https://geminicli.com/docs/tools/mcp-server/)
+
+> [!NOTE]
+> The skills reference Atobi MCP tool names (`gdrive_*`, `gcs_*`, `rc_*`, …) — they work identically in any agent as long as the Atobi server is connected. A few skills also mention Claude conveniences (Drive connector, memory tools); on other agents those steps degrade gracefully to the MCP equivalents or are skipped.
+
+## MCP integration
+
+Every skill talks to Atobi through the **Atobi Production MCP Server**. Connect it once per client, then verify:
+
+| Client | How to connect |
+|--------|----------------|
+| Claude Desktop / claude.ai | **Settings → Connectors** → add the Atobi Production MCP Server, sign in on the tenant you manage |
+| Claude Code | `claude mcp add --transport http atobi https://mcp.atobi.io/mcp` (or inherit the connector from claude.ai) |
+| Other agents | Add the Atobi server to that agent's MCP config — see the per-agent notes above |
+
+Then ask: **"Verify my Atobi connection"** and confirm the tenant named in the reply before creating anything.
+
+## Skill & command reference
+
+| Skill | Command | Phase | What it does |
+|-------|---------|-------|--------------|
+| [ce-asset-intake](skills/ce-asset-intake) | `/ce-asset-intake` | Intake | Brand PDFs → structured, searchable extracts |
+| [ce-brand-voice](skills/ce-brand-voice) | `/ce-brand-voice` | Intake | Authors/refreshes the brand voice triplet |
+| [ce-learning-article-creator](skills/ce-learning-article-creator) | `/ce-learning-article-creator` | Delivery | Creates training articles & journeys on-platform |
+| [ce-article-producer](skills/ce-article-producer) | `/ce-article-producer` | Delivery | Writes markdown articles to Drive for review |
+| [ce-quiz-generator](skills/ce-quiz-generator) | `/ce-quiz-generator` | Delivery | Knowledge checks and assessment actions |
+| [ce-feed-post-branded](skills/ce-feed-post-branded) | `/ce-feed-post-branded` | Delivery | Composes and publishes brand-voiced feed posts |
+| [ce-review](skills/ce-review) | `/ce-review` | Delivery | Independent brand-compliance audit before publish |
+| [ce-update-article](skills/ce-update-article) | `/ce-update-article` | Delivery | Safe fetch → merge → write edits to live articles |
+| [ce-reporting](skills/ce-reporting) | `/ce-reporting` | Delivery | Post-publish performance report (the loop-closer) |
+| [ce-remember](skills/ce-remember) | `/ce-remember` | Delivery | Captures standing operator preferences to memory |
+| [ce-feed-post](skills/ce-feed-post) | `/ce-feed-post` | Meta | Bare wiring test for the MCP → backend path |
 
 ## Where brand context lives
 
@@ -55,61 +159,41 @@ foundation/
 programs/<program>/drops/<slug>/   Article artefacts, reviews, published.yaml backlinks
 ```
 
-## For operators
-
-Two things to set up: the Atobi connector, and the skills.
-
-1. **Connect the tenant.** In Claude (Desktop → **Settings → Connectors**, or Claude Code via `claude mcp`), connect the Atobi Production MCP Server, signing in on the tenant you manage.
-2. **Verify** with `"Verify my Atobi connection"` and confirm the tenant in the reply before creating anything.
-3. **Install the skills** — clone once and run the installer; they link in and stay synced automatically:
-
-   ```bash
-   gh repo clone atobi-io/Atobi-Content-Engine ~/.claude/atobi-content-engine
-   ~/.claude/atobi-content-engine/install.sh
-   ```
-
-Then work the golden path above.
-
-## Automatic sync
-
-The skills sync straight from this repo into `~/.claude/skills/` — no zip upload, no manual copy. Clone once and run the installer:
-
-```bash
-gh repo clone atobi-io/Atobi-Content-Engine ~/.claude/atobi-content-engine
-~/.claude/atobi-content-engine/install.sh
-```
-
-That symlinks every `ce-*` skill into your Claude skills folder and schedules a background pull (launchd on macOS, cron on Linux) so new and updated skills appear automatically. Default interval is 30 min; override with `SYNC_INTERVAL=3600 ./install.sh` (seconds).
-
-- `sync.sh` — pulls latest and re-links skills. Runs on the schedule; safe to run by hand any time.
-- `install.sh` — one-time setup: initial sync + schedule the job.
-- `uninstall.sh` — removes the schedule and the `ce-*` symlinks (leaves your clone in place).
-
-The sync only ever touches `ce-*` symlinks that point into this repo — it never clobbers a real folder or another skill. Logs go to `.sync.log` in the clone.
-
-> Sync requires Claude Code (it reads `~/.claude/skills/`). Claude Desktop can't pull from GitHub; if you're on Desktop, upload each `ce-*` folder as a skill zip (`SKILL.md` at the zip root) via **Settings → Skills → Add**.
-
-## For maintainers
-
-Authoring is git: edit a skill, commit, push. Every operator's scheduled `sync.sh` picks up the change on its next pull — nothing to package or redistribute.
-
-```bash
-# in your clone
-git pull
-# edit ce-<skill>/SKILL.md (and manifest.yaml), then:
-git add ce-<skill> && git commit -m "…" && git push
-```
-
-Conventions:
-
-- Bump `version` in `manifest.yaml` on any behavioural change to `SKILL.md`.
-- Keep `scopes` and `tools` in the manifest in sync with what the skill actually calls. `atobi-mcp:admin` gates the `gdrive_*` and memory tools; `atobi-mcp:write` gates publishing.
-- Skills that write to the platform must confirm channel and audience with the operator before publishing — never infer them.
-- Reporting stays aggregate by default; individual staff data is chat-only and never written to Drive or Slack.
-
 ## Brand onboarding
 
 Create `foundation/brands/<brand>/source-material/`, drop the brand's PDFs, then run intake followed by the voice-profile workflow.
+
+## For maintainers
+
+Authoring is git: edit a skill, commit, push. Installed plugins pick up the change when you publish a new version.
+
+- **Releasing:** bump `version` in **both** `.claude-plugin/plugin.json` and the plugin entry in `.claude-plugin/marketplace.json` on any behavioural change, then push. Claude Code offers the update to installed users.
+- **Before pushing:** run `claude plugin validate .` — it must pass.
+- Each skill's `manifest.yaml` is internal documentation (scopes, tools, inputs). Claude does not read it; keep it in sync with what the skill actually calls. `atobi-mcp:admin` gates the `gdrive_*` and memory tools; `atobi-mcp:write` gates publishing.
+- Skills that write to the platform must confirm channel and audience with the operator before publishing — never infer them.
+- Reporting stays aggregate by default; individual staff data is chat-only and never written to Drive or Slack.
+
+## Migrating from the old symlink sync
+
+Earlier versions installed via `install.sh`, which symlinked skills into `~/.claude/skills/` and scheduled a background `git pull`. That system is gone. If you used it, clean up once:
+
+```bash
+# macOS: remove the scheduled job
+launchctl unload ~/Library/LaunchAgents/io.atobi.content-engine-sync.plist 2>/dev/null
+rm -f ~/Library/LaunchAgents/io.atobi.content-engine-sync.plist
+
+# Linux: remove the crontab line tagged "# io.atobi.content-engine-sync"
+crontab -l | grep -v "# io.atobi.content-engine-sync" | crontab -
+
+# Both: remove the old skill symlinks (only removes symlinks, not real folders)
+find ~/.claude/skills -maxdepth 1 -name 'ce-*' -type l -delete
+```
+
+Then install via the marketplace ([Getting started](#getting-started)). Your old clone can be deleted.
+
+## License
+
+Licensing is being decided — until a LICENSE file lands, all rights are reserved. If you want to use these skills outside an Atobi engagement, contact us first.
 
 ## Contact
 
