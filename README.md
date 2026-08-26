@@ -173,24 +173,6 @@ Authoring is git: edit a skill, commit, push. Installed plugins pick up the chan
 - Skills that write to the platform must confirm channel and audience with the operator before publishing — never infer them.
 - Reporting stays aggregate by default; individual staff data is chat-only and never written to Drive or Slack.
 
-## Migrating from the old symlink sync
-
-Earlier versions installed via `install.sh`, which symlinked skills into `~/.claude/skills/` and scheduled a background `git pull`. That system is gone. If you used it, clean up once:
-
-```bash
-# macOS: remove the scheduled job
-launchctl unload ~/Library/LaunchAgents/io.atobi.content-engine-sync.plist 2>/dev/null
-rm -f ~/Library/LaunchAgents/io.atobi.content-engine-sync.plist
-
-# Linux: remove the crontab line tagged "# io.atobi.content-engine-sync"
-crontab -l | grep -v "# io.atobi.content-engine-sync" | crontab -
-
-# Both: remove the old skill symlinks (only removes symlinks, not real folders)
-find ~/.claude/skills -maxdepth 1 -name 'ce-*' -type l -delete
-```
-
-Then install via the marketplace ([Getting started](#getting-started)). Your old clone can be deleted.
-
 ## License
 
 Licensing is being decided — until a LICENSE file lands, all rights are reserved. If you want to use these skills outside an Atobi engagement, contact us first.
