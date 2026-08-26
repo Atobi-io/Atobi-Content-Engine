@@ -33,7 +33,7 @@ A feed post published into the target tenant's feed, composed in the brand's doc
 | File | Load level | How it shapes this skill |
 |------|-----------|--------------------------|
 | `foundation/brands/<brand>/voice-profile.md` | **full** | Drives voice, tone, vocabulary. Without this, the skill refuses by default (see Step 3 fallback policy). Eventually the doc also mandates `fidelity-rules.md` and `glossary.md` per brand — load if present, skip if not. |
-| `plugins/atobi-foundation/.mcp.json` | reference | Declares the atobi-mcp connection this skill calls into |
+| Atobi MCP Server connector | reference | The MCP connection this skill calls into — connect it in your client first (Claude: Settings → Connectors or `claude mcp`; other agents: their MCP config) |
 | `search_memory` (substrate) | best-effort | Loads the brand `knowledge` playbook (accumulated operator preferences) so the post doesn't repeat corrected mistakes. Continue silently if absent — never block a post on memory. |
 | User-supplied `tenant`, `brand`, `topic` | input | Required — no defaults. Posting to the wrong tenant is the highest-risk failure mode (same guard as `ce-feed-post`). |
 
