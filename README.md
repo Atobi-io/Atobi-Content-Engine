@@ -58,7 +58,7 @@ npx skills add atobi-io/Atobi-Content-Engine -a codex -a cursor # target specifi
 npx skills add atobi-io/Atobi-Content-Engine -l                 # list skills without installing
 ```
 
-Whichever agent you use, you also need the Atobi MCP Server connected in it — the per-agent snippets below show where. Ask jul@atobi.io for the server URL for your tenant.
+Whichever agent you use, you also need the Atobi MCP Server (`https://mcp.atobi.io/mcp`) connected in it — the per-agent snippets below show where. Sign in on the tenant you manage when the OAuth flow opens.
 
 #### OpenAI Codex CLI
 
@@ -66,7 +66,7 @@ Skills live in `~/.agents/skills/` (global) or `.agents/skills/` (project) — `
 
 ```toml
 [mcp_servers.atobi]
-url = "<atobi-mcp-server-url>"
+url = "https://mcp.atobi.io/mcp"
 ```
 
 ```bash
@@ -82,7 +82,7 @@ Skills live in `~/.cursor/skills/` (global) or `.agents/skills/` / `.cursor/skil
 ```json
 {
   "mcpServers": {
-    "atobi": { "url": "<atobi-mcp-server-url>" }
+    "atobi": { "url": "https://mcp.atobi.io/mcp" }
   }
 }
 ```
@@ -104,7 +104,7 @@ Connect the Atobi MCP server in `~/.gemini/settings.json` (OAuth is discovered a
 ```json
 {
   "mcpServers": {
-    "atobi": { "httpUrl": "<atobi-mcp-server-url>" }
+    "atobi": { "httpUrl": "https://mcp.atobi.io/mcp" }
   }
 }
 ```
@@ -121,7 +121,7 @@ Every skill talks to Atobi through the **Atobi Production MCP Server**. Connect 
 | Client | How to connect |
 |--------|----------------|
 | Claude Desktop / claude.ai | **Settings → Connectors** → add the Atobi Production MCP Server, sign in on the tenant you manage |
-| Claude Code | `claude mcp add` with the Atobi server URL (or inherit the connector from claude.ai) |
+| Claude Code | `claude mcp add --transport http atobi https://mcp.atobi.io/mcp` (or inherit the connector from claude.ai) |
 | Other agents | Add the Atobi server to that agent's MCP config — see the per-agent notes above |
 
 Then ask: **"Verify my Atobi connection"** and confirm the tenant named in the reply before creating anything.
