@@ -3,8 +3,10 @@ name: ce-learning-article-creator
 description: >
   Create a single, highly engaging training or learning article directly on the
   Atobi platform via the GCS API. Decides between a Journey (shownAs: training)
-  and a regular article (shownAs: article), loads brand voice + publisher voice
-  from Drive when present, and assembles a block-tree payload. If publishing
+  and a regular article (shownAs: article), resolves the Publisher like the
+  brand (explicit input, or discovery + ask; session-sticky), loads brand
+  voice + publisher voice from Drive when present, and assembles a block-tree
+  payload. If publishing
   immediately, fetches channels and audiences and asks the operator to pick the
   exact channel + audience set before writing. Use whenever the user wants to
   build a learning module, training article, knowledge check, onboarding piece,
@@ -13,7 +15,7 @@ description: >
   "make a journey on Z", "create a knowledge check for staff on W".
 allowed-tools: gdrive_find_by_path, gdrive_read_file, gdrive_list_folder, gdrive_create_folder, gdrive_upload_file, gdrive_trash_file, gcs_list_channels, gcs_get_channel, us_list_audiences, gcs_create_article, search_memory, store_memory, update_memory, list_memory
 metadata:
-  version: "0.5.0"
+  version: "0.6.0"
   phases: [delivery]
 ---
 
@@ -21,7 +23,7 @@ metadata:
 
 Turn a learning topic into a single, highly engaging article that delivers real skill uplift — not just information — and publish (or draft) it directly on the Atobi platform via the GCS API. Use when the user wants a training module, knowledge check, onboarding piece, or any content whose primary goal is teaching.
 
-Drive layout: brand foundation files live at the **Shared Drive root** under `foundation/brands/<brand>/` — shared across workspace engines (content engine, gtm-engine, …), which is why they sit outside any single engine folder. `GDRIVE_DEFAULT_ROOT_ID` points at the Shared Drive root, so `foundation/...` paths resolve directly. Publisher-level voice/audience profiles live beside the brands at `foundation/publisher/`. Engine-specific files (`programs/`) live under this Publisher's content-engine folder (`atobiv2-content-engine/`). The skill never sees `customers/<tenant>/` in paths.
+Drive layout: brand foundation files live at the **Shared Drive root** under `foundation/brands/<brand>/` — shared across workspace engines and Publishers, which is why they sit outside any single engine folder. `GDRIVE_DEFAULT_ROOT_ID` points at the Shared Drive root, so `foundation/...` paths resolve directly. Publisher-level files live beside the brands at `foundation/publishers/<publisher>/` — one sub-folder per Publisher, resolved in Step 2b the same way brands are in Step 2. Engine-specific files (`programs/`, used here only for the `drop` backlink) live under the resolved Publisher's engine folder (declared in that Publisher's `config.yaml`). The skill never sees `customers/<tenant>/` in paths.
 
 ## Outcome
 
@@ -39,8 +41,9 @@ An article created on the Atobi platform — either as a `draft` (default) or `p
 | `foundation/brands/<brand>/voice-profile.md` | best-effort | If present, drives voice / tone / vocabulary. Loaded only when the file exists — the skill does not refuse without it for learning content (instructional design rules still apply), but it WILL surface its absence in Step 7 so the operator knows what voice shaped the output. |
 | `foundation/brands/<brand>/fidelity-rules.md` | best-effort | Locked phrases, banned phrases, claim rules. Load if present; skip silently if not. |
 | `foundation/brands/<brand>/glossary.md` | best-effort | Locked product names + multi-language forms. Load if present; skip silently if not. |
-| `foundation/publisher/voice-profile.md` | best-effort | Publisher voice (Layer 1 of voice stacking). Layers under the brand voice. Load if present; skip silently if not. |
-| `foundation/publisher/audience-profile.md` | best-effort | Floor-staff segments, languages, devices. Informs register. Skip if absent. |
+| `foundation/publishers/<publisher>/config.yaml` | best-effort | Declares the Publisher's `engine_folder` — needed only when the `drop` input is given (Step 7b writes under it). |
+| `foundation/publishers/<publisher>/voice-profile.md` | best-effort | Publisher voice (Layer 1 of voice stacking). Layers under the brand voice. Load if present; skip silently if not. |
+| `foundation/publishers/<publisher>/audience-profile.md` | best-effort | Floor-staff segments, languages, devices. Informs register. Skip if absent. |
 | `gcs_list_channels` (live) | required when publishing | Channel ids to publish into. Called in Step 6 only if `status="published"`. |
 | `us_list_audiences` (live) | required when publishing | Audience ids the article is visible to. Called in Step 6 only if `status="published"`. |
 | `search_memory` (substrate) | best-effort, Step 0 | Loads the brand `knowledge` playbook (0a) and pulls recent `insight` rows for the promotion pass (0b). Shapes defaults + drafting; never overrides the operator. Continue silently on error. |
@@ -125,7 +128,7 @@ _function: content-engine • updated: <YYYY-MM-DD> (<source skill>)_
 Use `AskUserQuestion` for each missing input below. Skip questions where the input was already supplied or the answer is obvious from context.
 
 1. **Topic** (`topic`) — what should staff learn or be able to do after reading this? One clear skill or knowledge area. If the answer covers multiple things, ask which is most important, or suggest building several articles.
-2. **Archetype** (`archetype`) — what KIND of article is this? This determines the section template, formatting density, quiz role, and `shownAs`. Required when foundation/publisher/voice-profile.md is present (it has different templates per archetype). One of:
+2. **Archetype** (`archetype`) — what KIND of article is this? This determines the section template, formatting density, quiz role, and `shownAs`. Required when the resolved Publisher's `foundation/publishers/<publisher>/voice-profile.md` is present (it has different templates per archetype). One of:
    - `product-launch` — new product hits the store **with a campaign / Early-Access window**. Journey, 5 sections including a dedicated Introduction. (e.g. Ghost 18 at Intersport)
    - `refresh` — new generation of an existing product, no campaign event. Journey, 4 sections, Consumer Profile is the entry point (no separate Intro). (e.g. Adrenaline GTS 25)
    - `family-series` — overview of a product family / line. Journey, 1 family-overview section + 1 per product variant. Heavy on video blocks; quizzes per-product, no dedicated Recap. (e.g. Brooks Glycerin Series)
@@ -138,6 +141,7 @@ Use `AskUserQuestion` for each missing input below. Skip questions where the inp
 4. **Format** (`format`) — usually **derived from archetype** (launch/refresh/educational/compliance → `training`; campaign-awareness → `article`). Only ask if the operator wants to override. Options: `training` (Journey, sequential), `article` (any-order reading), `auto`.
 5. **Status** (`status`) — `draft` (default) or `published` (live immediately).
 6. **Brand** (`brand`) — optional. Resolved in Step 2 if missing.
+7. **Publisher** (`publisher`) — optional. Resolved in Step 2b if missing (session-sticky — don't re-ask if already chosen this session).
 
 **Channel and audiences are NOT asked here.** They are required if and only if `status="published"`, and they are resolved against live platform data in Step 6 (not free-form text input).
 
@@ -166,6 +170,31 @@ Unlike `ce-article-producer`, this skill **does not refuse without a brand**. Le
 
 **Deferred playbook load.** If Step 0 was skipped because the brand wasn't known yet, run Step 0a–0c now that the brand has resolved — before Step 3 — so the playbook can still inform voice loading, drafting, and channel/audience defaults. If a brand could not be resolved at all, there is no playbook to load; continue without one.
 
+## Step 2b: Resolve the publisher (best-effort)
+
+Same shape as brand resolution, with two differences: a session-sticky choice, and zero publishers is not an error.
+
+**Session stickiness first:** if a publisher was already resolved earlier in this session, reuse it without re-asking. An explicit `publisher` input on this invocation, or the operator asking to switch, overrides the session choice.
+
+If `publisher` was supplied, verify the folder `foundation/publishers/<publisher>/` exists via `gdrive_find_by_path`. If it doesn't, fall through to discovery and ask the operator which publisher they meant — don't fuzzy-match.
+
+**Discovery (when `publisher` is missing or the supplied slug doesn't exist):**
+
+```
+gdrive_find_by_path({ path: "foundation/publishers" })
+gdrive_list_folder({ folder_id: <publishers-folder-id> })
+```
+
+Filter to `mimeType == 'application/vnd.google-apps.folder'`. Branch on count:
+
+| Count | What to do |
+|---|---|
+| 0 | Not an error. Continue with no Publisher layer — brand voice (or generic instructional-design voice) carries the article; Step 8's report notes the absence. |
+| 1 | Use that publisher. Echo it before continuing. |
+| 2+ | Present the list to the operator and ask which to use — for this article or for the whole session. Remember the answer for the rest of the session. |
+
+**If the `drop` input is given**, also load `foundation/publishers/<publisher>/config.yaml` (best-effort): its `engine_folder` key names the Publisher's engine folder (e.g. `atobiv2-content-engine`) — Step 7b writes the drop backlink under it. If the config or the key is missing, ask the operator where the drop lives rather than guessing.
+
 ## Step 3: Load voice profiles (best-effort, only if files exist)
 
 For each of the files below, call `gdrive_find_by_path` FIRST. Only `gdrive_read_file` if `found: true`. Never assume — always check. Keep track of which files were loaded so Step 7 can list them in the report.
@@ -175,11 +204,11 @@ For each of the files below, call `gdrive_find_by_path` FIRST. Only `gdrive_read
 - `foundation/brands/<brand>/fidelity-rules.md`
 - `foundation/brands/<brand>/glossary.md`
 
-**Publisher layer:**
-- `foundation/publisher/voice-profile.md`
-- `foundation/publisher/audience-profile.md`
+**Publisher layer (if a publisher was resolved in Step 2b):**
+- `foundation/publishers/<publisher>/voice-profile.md`
+- `foundation/publishers/<publisher>/audience-profile.md`
 
-**Path-prefix retry (publisher layer only)**: if a `foundation/publisher/` path returns `found: false` on the first attempt, retry once with the engine prefix (`atobiv2-content-engine/<path>`) before declaring it absent — publisher files are engine-relative. `foundation/` paths live at the Shared Drive root and take no prefix; a miss there means the file genuinely doesn't exist.
+No path-prefix retry: publisher files live at the Shared Drive root under `foundation/publishers/<publisher>/`, exactly where `GDRIVE_DEFAULT_ROOT_ID` points. A `found: false` means the file genuinely doesn't exist for that Publisher.
 
 **Conflict resolution** (when Publisher + brand voice disagree):
 - Claims & product language → **brand** wins (fidelity / glossary).
@@ -607,12 +636,12 @@ Note the `article` wrapper — the tool input is `{ article: {...} }`, not the p
 
 Skip entirely when the `drop` input is absent — no Drive write happens (previous behaviour). When present, this step links the Drive artefact trail to the live article: the one moment both ids are known is right after `gcs_create_article` returns, so the link is written here or lost.
 
-Resolve the drop folder: `drop` is either the full `programs/<program>/drops/<slug>/` path or the `<program>/<slug>` shorthand (expand to the full path). `gdrive_find_by_path` it; if the folder doesn't exist, confirm with the operator before `gdrive_create_folder`-ing the chain (`programs/` → `<program>/` → `drops/` → `<slug>/`) — a typo'd slug otherwise mints a stray drop. Use ids from each create response directly (Drive index lag on fresh folders).
+Resolve the drop folder: `drop` is either the full `<engine_folder>/programs/<program>/drops/<slug>/` path or the `<program>/<slug>` shorthand (expand to the full path using the `engine_folder` from Step 2b's publisher config). `gdrive_find_by_path` it; if the folder doesn't exist, confirm with the operator before `gdrive_create_folder`-ing the chain (`<engine_folder>/programs/` → `<program>/` → `drops/` → `<slug>/`) — a typo'd slug otherwise mints a stray drop. Never create `programs/` at the Shared Drive root — drops always live inside an engine folder. Use ids from each create response directly (Drive index lag on fresh folders).
 
 Trash any existing `published.yaml` in the folder (recoverable history — re-publish and draft→published transitions overwrite), then upload:
 
 ```yaml
-# published.yaml — written by ce-learning-article-creator v0.5; read by ce-reporting (program: mode)
+# published.yaml — written by ce-learning-article-creator v0.6; read by ce-reporting (program: mode)
 article_id: <id from gcs_create_article>
 title: "<article title>"
 shown_as: <training|article>
@@ -621,7 +650,7 @@ channel_id: <id, or omit for drafts>
 channel_name: "<name, or omit for drafts>"
 audience_ids: [<ids, or omit for drafts>]
 published_at: "<YYYY-MM-DD>"
-published_by: ce-learning-article-creator v0.5
+published_by: ce-learning-article-creator v0.6
 ```
 
 Drafts get the backlink too (`status: draft`, channel/audience fields omitted) — the id link is what matters; `ce-reporting`'s publication check reads live state anyway.
@@ -683,6 +712,8 @@ If `store_memory` errors, report it in one line but treat the run as successful 
 ## Troubleshooting
 
 - **No brands seeded in this workspace** — `gdrive_list_folder` returned zero folders at `foundation/brands/`. Continue without a brand; the article will use generic instructional-design voice and Step 7's report flags the absence.
+- **User picked a publisher that doesn't appear in the discovery list** — re-present the list from `foundation/publishers/` and ask again. Don't fuzzy-match or auto-create a publisher folder mid-run; Publisher onboarding (folder + `config.yaml`) is a Setup-mode task.
+- **`drop` given but the publisher's `config.yaml` is missing or lacks `engine_folder`** — the article itself is unaffected (it lives on the platform); only the backlink has no destination. Ask the operator for the full drop path; suggest adding `engine_folder` to the publisher's `config.yaml` so future runs resolve it.
 - **Voice profile files not found** — expected. They are best-effort for learning content. Step 7's report MUST list which files were loaded so the operator knows what shaped the output.
 - **Paths look wrong (e.g. `foundation/` not found)** — the deployment's `GDRIVE_DEFAULT_ROOT_ID` must point at the Shared Drive root, where `foundation/` and the engine folders (`atobiv2-content-engine/`, `gtm-engine/`) live. If it points at a single engine folder or a different drive, the shared `foundation/` tree is unreachable — fix the env var.
 - **`gcs_list_channels` returned zero channels** — the tenant has no channels configured. Publishing is impossible. Stop and tell the operator; offer to save as draft instead.

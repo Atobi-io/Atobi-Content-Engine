@@ -1,28 +1,30 @@
 ---
 name: ce-article-producer
 description: >
-  Produce a brand-voiced markdown article for a specific brand inside this
-  Publisher's content engine. Loads the brand voice profile from the brand's
-  foundation folder, generates the article in the loaded voice, and saves it to
-  the program's drops folder. Optionally auto-calls
+  Produce a brand-voiced markdown article for a specific brand and Publisher.
+  Resolves the Publisher like the brand (explicit input, or discovery + ask;
+  session-sticky), loads the brand voice profile from the brand's foundation
+  folder, generates the article in the loaded voice, and saves it to the
+  drops folder under the Publisher's engine folder. Optionally auto-calls
   ce-quiz-generator. Use when asked "write an article about X for a brand".
 allowed-tools: gdrive_find_by_path, gdrive_read_file, gdrive_search_files, gdrive_list_folder, gdrive_create_folder, gdrive_upload_file, search_memory, store_memory, update_memory
 metadata:
-  version: "0.2.0"
+  version: "0.3.0"
   phases: [delivery]
 ---
 
 # Article producer
 
-Produce a brand-voiced markdown article for a specific brand inside this Publisher's content engine. Loads the brand voice profile (and any seeded fidelity / glossary) from `foundation/brands/<brand>/`, generates the article in the loaded voice, and saves the output as a drop under `programs/`. Invoke when asked "write an article about X for `<brand>`", or auto-call from a higher-level campaign skill.
+Produce a brand-voiced markdown article for a specific brand and Publisher. Resolves the Publisher (like the brand: explicit input, or discovery + ask), loads the brand voice profile (and any seeded fidelity / glossary) from `foundation/brands/<brand>/`, generates the article in the loaded voice, and saves the output as a drop under the Publisher's engine folder. Invoke when asked "write an article about X for `<brand>`", or auto-call from a higher-level campaign skill.
 
-Drive layout: brand foundation files live at the **Shared Drive root** under `foundation/brands/<brand>/` — shared across workspace engines (content engine, gtm-engine, …), which is why they sit outside any single engine folder. `GDRIVE_DEFAULT_ROOT_ID` points at the Shared Drive root, so `foundation/...` paths resolve directly. Publisher-level voice/audience profiles live beside the brands at `foundation/publisher/`. Engine-specific files (`programs/`) live under this Publisher's content-engine folder (`atobiv2-content-engine/`). The skill never sees `customers/` in paths.
+Drive layout: brand foundation files live at the **Shared Drive root** under `foundation/brands/<brand>/` — shared across workspace engines and Publishers (INTERSPORT and a brand engine can share one Brooks profile), which is why they sit outside any single engine folder. `GDRIVE_DEFAULT_ROOT_ID` points at the Shared Drive root, so `foundation/...` paths resolve directly. Publisher-level files live beside the brands at `foundation/publishers/<publisher>/` — one sub-folder per Publisher, resolved in Step 1b the same way brands are in Step 2. Engine-specific files (`programs/`) live under the resolved Publisher's engine folder (declared in that Publisher's `config.yaml`). The skill never sees `customers/` in paths.
 
 ## Outcome
 
-A markdown article saved to this engine's `programs/` tree.
+A markdown article saved to the resolved Publisher's `programs/` tree.
 
-- **Output path**: `programs/<program>/drops/<slug>/<slug>.md`
+- **Output path**: `<engine_folder>/programs/<program>/drops/<slug>/<slug>.md`
+  - `<engine_folder>` from the resolved Publisher's `config.yaml` (Step 1b), e.g. `atobiv2-content-engine`
   - `<program>` from the `program` input; defaults to `_adhoc` for one-off articles not part of a coordinated arc
   - `<slug>` derived from the topic (lowercase, hyphen-separated, ≤60 chars)
   - The drop folder is the natural place for adjacent artefacts the doc envisions (`brief.yaml`, `assets/`, `drafts/`, `translations/`, etc.) — v0 of this skill only produces the article markdown; richer drops come with later skills.
@@ -38,8 +40,9 @@ A markdown article saved to this engine's `programs/` tree.
 | `foundation/brands/<brand>/fidelity-rules.md` | best-effort | Locked phrases, banned phrases, claim rules. Per the doc, this is a required brand artefact; until skills like `ce-fidelity` exist to author it, skip silently if absent. |
 | `foundation/brands/<brand>/glossary.md` | best-effort | Locked product names + multi-language forms. Same status as fidelity — load if present, skip if not. |
 | `foundation/brands/<brand>/source-material/*` | scoped to topic | Raw brand inputs (product PDFs, spec sheets). `gdrive_search_files` under that folder for files whose name or content references the topic; load matching ones. |
-| `foundation/publisher/voice-profile.md` | reference | The Publisher voice (Layer 1 of voice stacking per the doc). Layer with the brand voice. Skip silently if absent — most engines don't have it seeded yet. |
-| `foundation/publisher/audience-profile.md` | reference | Floor-staff segments, languages, devices. Informs register. Skip if absent. |
+| `foundation/publishers/<publisher>/config.yaml` | best-effort | Declares the Publisher's `engine_folder` (where outputs go) and, later, the tenant binding. If absent, ask where outputs should go. |
+| `foundation/publishers/<publisher>/voice-profile.md` | reference | The Publisher voice (Layer 1 of voice stacking per the doc). Layer with the brand voice. Skip silently if absent — most Publishers don't have it seeded yet. |
+| `foundation/publishers/<publisher>/audience-profile.md` | reference | Floor-staff segments, languages, devices. Informs register. Skip if absent. |
 | `search_memory` (substrate) | best-effort | Loads the brand `knowledge` playbook (accumulated operator preferences) so the article doesn't repeat corrected mistakes. Continue silently if absent — never block on memory. |
 | ce-quiz-generator | downstream | Called in Step 8 if `include_quizzes=true`. Pass the produced article as source content and the same voice context. |
 
@@ -52,9 +55,36 @@ A markdown article saved to this engine's `programs/` tree.
 
 ## Step 1: Validate inputs
 
-Required input: `topic`. If empty, stop and ask the user — do not guess. The engine knows its Publisher from being deployed (one engine per Publisher); the skill itself doesn't take a tenant input.
+Required input: `topic`. If empty, stop and ask the user — do not guess.
 
-`brand` is optional and is resolved in Step 2. Other optional inputs: `program` (defaults to `_adhoc`), `audience` (defaults to `"retail staff"`), `length` (defaults to `"standard"`), `include_quizzes` (defaults to `false`).
+`publisher` is optional and is resolved in Step 1b; `brand` is optional and is resolved in Step 2. Other optional inputs: `program` (defaults to `_adhoc`), `audience` (defaults to `"retail staff"`), `length` (defaults to `"standard"`), `include_quizzes` (defaults to `false`).
+
+## Step 1b: Resolve the publisher
+
+Same shape as brand resolution (Step 2), with two differences: a session-sticky choice, and zero publishers is not an error.
+
+**Session stickiness first:** if a publisher was already resolved earlier in this session, reuse it without re-asking. An explicit `publisher` input on this invocation, or the user asking to switch, overrides the session choice.
+
+If `publisher` was supplied, verify the folder `foundation/publishers/<publisher>/` exists via `gdrive_find_by_path`. If it doesn't, fall through to discovery and ask the user which publisher they meant — don't fuzzy-match.
+
+**Discovery (when `publisher` is missing or the supplied slug doesn't exist):**
+
+```
+gdrive_find_by_path({ path: "foundation/publishers" })
+→ get the publishers folder id
+gdrive_list_folder({ folder_id: <publishers-folder-id> })
+→ list of publisher sub-folders
+```
+
+Filter to `mimeType == 'application/vnd.google-apps.folder'`. Branch on count:
+
+| Count | What to do |
+|---|---|
+| 0 | Not an error. Proceed with no Publisher layer (brand-only voice) and note it in the Step 10 response. Ask the user where outputs should go, since there's no `config.yaml` to name the engine folder. |
+| 1 | Use that publisher. Surface it in the response so the user can catch a mistake. |
+| 2+ | Present the list to the user and ask which to use — for this article or for the whole session. Remember the answer for the rest of the session. |
+
+**Then load the publisher config (best-effort):** `foundation/publishers/<publisher>/config.yaml`. Its `engine_folder` key names the Publisher's engine folder (e.g. `atobiv2-content-engine`) — Step 9 saves outputs under it. If the config or the `engine_folder` key is missing, ask the user where outputs should go rather than guessing.
 
 ## Step 2: Resolve the brand
 
@@ -77,7 +107,7 @@ Filter to `mimeType == 'application/vnd.google-apps.folder'`. Branch on count:
 | 1 | Use that brand. Surface it in the response so the user can catch a mistake before the article gets written. |
 | 2+ | Present the list to the user and ask which to use. Wait for an answer. |
 
-Echo the resolved brand (and `program`, defaulting to `_adhoc`) back before doing the rest of the work — this is a multi-call sequence and confirmation saves cycles.
+Echo the resolved publisher and brand (and `program`, defaulting to `_adhoc`) back before doing the rest of the work — this is a multi-call sequence and confirmation saves cycles.
 
 ## Step 2b: Recall the brand playbook (memory)
 
@@ -134,8 +164,10 @@ If found, `gdrive_read_file` the content. Keep it in working memory — primary 
 Per the doc, these are required brand artefacts. Until `ce-fidelity` / `ce-glossary` Setup skills exist to author them, they often won't be present. Load if found; the article still ships if not.
 
 **Publisher voice layer (Layer 1 of voice stacking — best-effort, skip silently if absent):**
-- `foundation/publisher/voice-profile.md` — Publisher's own voice
-- `foundation/publisher/audience-profile.md` — who reads this
+- `foundation/publishers/<publisher>/voice-profile.md` — the resolved Publisher's own voice
+- `foundation/publishers/<publisher>/audience-profile.md` — who reads this
+
+(Skip both lookups entirely if Step 1b resolved no publisher.)
 
 These layer *under* the brand voice. Conflict resolution (per the doc): claims and product language → brand wins; tone, structure, activation, writing discipline → Publisher wins. If the Publisher layer is absent, you're effectively writing brand-only voice — note it in Step 10's response so the reviewer knows what was loaded.
 
@@ -154,13 +186,13 @@ If the source-material folder doesn't exist, or `topic` is non-product (a season
 
 ## Step 5: Load Publisher-shared context (optional, situational)
 
-If the brand corpus is thin (no source material loaded, no fidelity / glossary), pull more from `foundation/publisher/` — particularly:
+If the brand corpus is thin (no source material loaded, no fidelity / glossary) and a publisher was resolved, pull more from `foundation/publishers/<publisher>/` — particularly:
 
 ```
-gdrive_find_by_path({ path: "foundation/publisher" }) → list contents
+gdrive_find_by_path({ path: "foundation/publishers/<publisher>" }) → list contents
 ```
 
-Useful candidates: `foundation/publisher/audience-profile.md`, `publisher-content-style.md`, `publisher-fidelity-rules.md`, `publisher-glossary.md`. Skip if brand-specific context was already sufficient — adding more on top of rich brand context just dilutes.
+Useful candidates: `audience-profile.md`, `content-style.md`, `fidelity-rules.md`, `glossary.md`. Skip if brand-specific context was already sufficient — adding more on top of rich brand context just dilutes.
 
 ## Step 6: Draft the article
 
@@ -204,11 +236,13 @@ Embed the returned YAML block at the end of the article under a `## Knowledge ch
 
 ## Step 9: Save the article
 
-Resolve (or create) the output folder chain step by step, using the id returned from each `gdrive_create_folder` directly (don't re-resolve via path — avoids Drive's search-index lag on freshly-created items):
+Resolve (or create) the output folder chain step by step under the Publisher's engine folder (`<engine_folder>` from Step 1b's config), using the id returned from each `gdrive_create_folder` directly (don't re-resolve via path — avoids Drive's search-index lag on freshly-created items):
 
 ```
-programs/ → programs/<program>/ → programs/<program>/drops/ → programs/<program>/drops/<slug>/
+<engine_folder>/programs/ → .../programs/<program>/ → .../drops/ → .../drops/<slug>/
 ```
+
+Never create `programs/` at the Shared Drive root — outputs always live inside an engine folder. If Step 1b left `<engine_folder>` unresolved, this step must not proceed until the user has named a destination.
 
 Check for an existing file at `<slug>.md` in the final drop folder. If present, soft-delete it via `gdrive_trash_file` before uploading the new version (preserves a recoverable history in Drive trash).
 
@@ -266,7 +300,9 @@ Field notes: `function_id` exact and case-sensitive — Step 2b reads it back. T
 ## Troubleshooting
 
 - **No brands seeded in this workspace** — `gdrive_list_folder` returned zero folders at `foundation/brands/`. Brand onboarding is a separate Setup-mode flow; escalate rather than auto-creating.
-- **User picked a brand that doesn't appear in the discovery list** — they may be confusing engines (different Publisher). Re-present the list scoped to *this* engine and ask again. Don't proceed on an unconfirmed brand.
+- **User picked a publisher that doesn't appear in the discovery list** — re-present the list from `foundation/publishers/` and ask again. Don't fuzzy-match or proceed on an unconfirmed publisher; onboarding a new Publisher (folder + `config.yaml`) is a Setup-mode task, not something to auto-create mid-run.
+- **`foundation/publishers/<publisher>/config.yaml` missing or lacks `engine_folder`** — the voice layer still loads, but outputs have no destination. Ask the user where drops should go; suggest adding the key to `config.yaml` so future runs don't ask.
+- **User picked a brand that doesn't appear in the discovery list** — brands are shared across Publishers at `foundation/brands/`; the brand may simply not be onboarded yet. Re-present the list and ask again. Don't proceed on an unconfirmed brand.
 - **Voice profile not found at `foundation/brands/<brand>/voice-profile.md`** — the brand folder exists but the voice file is missing. See Step 3's fallback options.
 - **Paths look wrong (e.g. `foundation/` not found)** — the deployment's `GDRIVE_DEFAULT_ROOT_ID` must point at the Shared Drive root, where `foundation/` and the engine folders (`atobiv2-content-engine/`, `gtm-engine/`) live. If it points at a single engine folder or a different drive, the shared `foundation/` tree is unreachable — fix the env var.
 - **Article doesn't sound like the brand** — Step 7 was skipped or rushed. Re-load the voice profile content (don't rely on memory), re-audit each rule line-by-line, regenerate sections that fail. If the Publisher voice was also loaded, double-check the conflict-resolution rules in Step 7 — claims/glossary from brand, tone/structure from Publisher.

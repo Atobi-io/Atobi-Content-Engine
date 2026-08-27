@@ -15,7 +15,7 @@ description: >
   producer run.
 allowed-tools: gdrive_find_by_path, gdrive_list_folder, gdrive_search_files, gdrive_read_file, gdrive_upload_file, gdrive_trash_file, gcs_get_article, search_memory, store_memory
 metadata:
-  version: "0.1.0"
+  version: "0.2.0"
   phases: [quality]
 ---
 
@@ -45,7 +45,7 @@ A severity-tagged findings report with an overall verdict:
 | `foundation/brands/<brand>/glossary.md` | if exists | Locked product spellings — every product mention is checked against it. |
 | `source-material/*.extract.md` | scoped | Grounding evidence: every spec/number/claim in the content must trace to an extract (or other loaded source). |
 | `search_memory` playbook | best-effort | **Locked** bullets are review criteria equal to fidelity rules — they're corrections the operator already made once. |
-| `foundation/publisher/voice-profile.md` | reference | Layering: tone/structure findings defer to publisher rules when the brand file is silent. Skip if absent. |
+| `foundation/publishers/<publisher>/voice-profile.md` | reference | Layering: tone/structure findings defer to the resolved Publisher's rules when the brand file is silent. Skip if no publisher resolved or the file is absent. |
 
 ## Skill relationships
 
@@ -65,9 +65,11 @@ A severity-tagged findings report with an overall verdict:
 
 Infer from the drop's path/front matter or the article's content, then **confirm the inference with the operator** — auditing against the wrong brand's rules produces confidently wrong findings, the worst failure mode this skill has. If nothing is inferable, ask. Verify `foundation/brands/<brand>/` exists (same discovery pattern as the producers).
 
+**Also resolve the publisher** (best-effort, same routine as the producers): reuse the publisher already chosen this session, or take the `publisher` input, or discover under `foundation/publishers/` (0 → review without the publisher layer, noted in the report header; 1 → use it; 2+ → ask, and the answer sticks for the session). A drop's path is a strong hint — its engine folder usually maps to one publisher's `config.yaml` `engine_folder`; confirm rather than assume.
+
 ## Step 3: Load the criteria — fresh, from source
 
-Load the voice triplet (`voice-profile.md` full; fidelity/glossary if present), the playbook (`search_memory`, quoted-phrase query, `tier: "knowledge"`, best-effort), and the publisher voice profile (reference, best-effort). **Independence rule: never accept the producer's summary of the rules, a cached version from earlier in the session, or "I remember this brand's voice" — re-read the files.** The whole value of this skill is that its copy of the criteria is authoritative and current.
+Load the voice triplet (`voice-profile.md` full; fidelity/glossary if present), the playbook (`search_memory`, quoted-phrase query, `tier: "knowledge"`, best-effort), and the resolved Publisher's voice profile at `foundation/publishers/<publisher>/voice-profile.md` (reference, best-effort). **Independence rule: never accept the producer's summary of the rules, a cached version from earlier in the session, or "I remember this brand's voice" — re-read the files.** The whole value of this skill is that its copy of the criteria is authoritative and current.
 
 Degraded modes, always disclosed in the report header:
 
