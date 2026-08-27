@@ -1,7 +1,7 @@
 {
   "name": "content-engine",
   "description": "Brand-voiced learning content pipeline for the Atobi platform — asset intake, brand voice profiles, article and journey production, quizzes, compliance review, publishing, and performance reporting.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": {
     "name": "Atobi",
     "email": "jul@atobi.io"

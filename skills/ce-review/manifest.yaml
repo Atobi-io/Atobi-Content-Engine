@@ -1,5 +1,5 @@
 id: ce-review
-version: 0.1.0
+version: 0.2.0
 owner: atobi-content-engine
 description: |
   Independent brand-compliance review of produced content — a Drive drop
@@ -44,6 +44,15 @@ inputs:
       Brand slug — matches foundation/brands/<brand>/. Usually inferable from the
       drop's front matter or article context; the skill confirms an inferred
       brand before auditing against its rules.
+  publisher:
+    type: string
+    optional: true
+    description: |
+      Publisher slug — matches foundation/publishers/<publisher>/ at the Shared
+      Drive root. Optional. If omitted, the skill reuses the publisher already
+      chosen this session, or discovers under foundation/publishers/ (1 → use
+      it; 2+ → ask; 0 → review without the publisher layer, disclosed in the
+      report header).
   dimensions:
     type: string
     optional: true

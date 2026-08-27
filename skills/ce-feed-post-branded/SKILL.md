@@ -9,7 +9,7 @@ description: >
   asked "post about X for a brand", "publish a feed update for a brand".
 allowed-tools: gdrive_find_by_path, gdrive_list_folder, gdrive_read_file, post_feed_post, search_memory, store_memory
 metadata:
-  version: "0.2.0"
+  version: "0.3.0"
   phases: [delivery]
 ---
 
@@ -17,7 +17,7 @@ metadata:
 
 Compose and publish a feed post in a brand's voice. Given a `brand + topic`, the skill loads the brand voice profile from the engine's Drive, composes the post in that voice, and publishes to the Atobi tenant via `post_feed_post`. Use when asked "post about X for `<brand>`" or "publish a feed update for `<brand>`". Differs from `ce-feed-post` (the bare wiring-test skill) by composing branded content end-to-end rather than relaying a user-supplied body verbatim.
 
-Drive layout: brand foundation files live at the **Shared Drive root** under `foundation/brands/<brand>/` — shared across workspace engines (content engine, gtm-engine, …), which is why they sit outside any single engine folder. `GDRIVE_DEFAULT_ROOT_ID` points at the Shared Drive root, so `foundation/...` paths resolve directly. Publisher-level voice/audience profiles live beside the brands at `foundation/publisher/`. Engine-specific files (`programs/`) live under this Publisher's content-engine folder (`atobiv2-content-engine/`). The skill never sees `customers/<tenant>/` in paths.
+Drive layout: brand foundation files live at the **Shared Drive root** under `foundation/brands/<brand>/` — shared across workspace engines and Publishers, which is why they sit outside any single engine folder. `GDRIVE_DEFAULT_ROOT_ID` points at the Shared Drive root, so `foundation/...` paths resolve directly. Publisher-level files live beside the brands at `foundation/publishers/<publisher>/` — one sub-folder per Publisher, resolved in Step 1b the same way brands are in Step 2. The skill never sees `customers/<tenant>/` in paths.
 
 ## Outcome
 
@@ -35,7 +35,8 @@ A feed post published into the target tenant's feed, composed in the brand's doc
 | `foundation/brands/<brand>/voice-profile.md` | **full** | Drives voice, tone, vocabulary. Without this, the skill refuses by default (see Step 3 fallback policy). Eventually the doc also mandates `fidelity-rules.md` and `glossary.md` per brand — load if present, skip if not. |
 | Atobi MCP Server connector | reference | The MCP connection this skill calls into — connect it in your client first (Claude: Settings → Connectors or `claude mcp`; other agents: their MCP config) |
 | `search_memory` (substrate) | best-effort | Loads the brand `knowledge` playbook (accumulated operator preferences) so the post doesn't repeat corrected mistakes. Continue silently if absent — never block a post on memory. |
-| User-supplied `tenant`, `brand`, `topic` | input | Required — no defaults. Posting to the wrong tenant is the highest-risk failure mode (same guard as `ce-feed-post`). |
+| `foundation/publishers/<publisher>/config.yaml` | best-effort | May declare the Publisher's `tenant` binding — the default target tenant when the `tenant` input is omitted. |
+| User-supplied `topic` (+ `tenant` when no publisher config supplies one) | input | Posting to the wrong tenant is the highest-risk failure mode (same guard as `ce-feed-post`) — the resolved tenant is always echoed before publish. |
 
 ## Skill relationships
 
@@ -48,11 +49,23 @@ A feed post published into the target tenant's feed, composed in the brand's doc
 
 ## Step 1: Validate inputs
 
-Required: `tenant`, `topic`. If either is empty, stop and ask the user — do not guess defaults. **Tenant especially**: posting into the wrong tenant is a real-world incident; treat the input as load-bearing.
+Required: `topic`. If empty, stop and ask the user — do not guess defaults.
 
-(Eventually `tenant` will come from `foundation/publisher/publisher-commercial-config.yaml` — until that artefact exists, the skill still takes it as input.)
+`tenant` comes from the resolved Publisher's `config.yaml` when that declares one (Step 1b); the `tenant` input overrides it, and is required when no publisher config supplies it. **Tenant especially**: posting into the wrong tenant is a real-world incident; treat the value as load-bearing — Step 5's confirmation echo must always show it.
 
-`brand` is optional and is resolved in Step 2. `length` defaults to `"standard"`. `title` is omitted if not supplied.
+`publisher` is optional and is resolved in Step 1b; `brand` is optional and is resolved in Step 2. `length` defaults to `"standard"`. `title` is omitted if not supplied.
+
+## Step 1b: Resolve the publisher (best-effort)
+
+Same shape as brand resolution (Step 2), with two differences: a session-sticky choice, and zero publishers is not an error.
+
+**Session stickiness first:** if a publisher was already resolved earlier in this session, reuse it without re-asking. An explicit `publisher` input, or the user asking to switch, overrides the session choice.
+
+If `publisher` was supplied, verify `foundation/publishers/<publisher>/` exists via `gdrive_find_by_path`; if not found, fall through to discovery — don't fuzzy-match.
+
+**Discovery (when `publisher` is missing or the supplied slug doesn't exist):** list `foundation/publishers/` via `gdrive_find_by_path` + `gdrive_list_folder`, filter to folders, branch on count: 0 → continue with no publisher (the `tenant` input is then required); 1 → use it and surface the choice; 2+ → present the list and ask — the answer sticks for the rest of the session.
+
+**Then load `foundation/publishers/<publisher>/config.yaml` (best-effort):** if it declares a `tenant`, that becomes the default tenant binding for this post (an explicit `tenant` input still wins). If neither the config nor the input names a tenant, stop and ask.
 
 ## Step 2: Resolve the brand
 
@@ -132,7 +145,7 @@ The audit step is what differentiates this from `ce-feed-post`. Don't skip it.
 ## Step 5: Echo for confirmation
 
 Show the user:
-- Resolved tenant + brand (and, if Step 2 auto-picked the brand because only one was available, say so explicitly — "using the only brand under this tenant: `<brand>`")
+- Resolved tenant + publisher + brand, and where the tenant came from (`tenant` input vs the publisher's `config.yaml`). If Step 1b/2 auto-picked the publisher or brand because only one was available, say so explicitly — "using the only brand: `<brand>`"
 - The style guide path that shaped the post
 - The composed body (and title, if supplied)
 
@@ -194,7 +207,8 @@ Field notes: `function_id` exact and case-sensitive. The brand goes in the first
 ## Troubleshooting
 
 - **No brands seeded in this engine** — `gdrive_list_folder` returned zero folders at `foundation/brands/`. The engine is new and hasn't been seeded with any brand yet. This is a Setup-mode gap, not a runtime bug — escalate to whoever runs Setup (operator or Atobi).
-- **User picked a brand that doesn't appear in the list** — they may be confusing engines (atobiv2 vs another Publisher). Re-present the list scoped to *this* engine and ask again. Don't proceed on a brand the lookup doesn't confirm.
+- **User picked a publisher that doesn't appear in the list** — re-present the list from `foundation/publishers/` and ask again. Don't fuzzy-match or auto-create; Publisher onboarding (folder + `config.yaml`) is a Setup-mode task.
+- **User picked a brand that doesn't appear in the list** — brands are shared across Publishers at `foundation/brands/`; the brand may simply not be onboarded yet. Re-present the list and ask again. Don't proceed on a brand the lookup doesn't confirm.
 - **Voice profile not found at `foundation/brands/<brand>/voice-profile.md`** — the brand folder exists but the voice file is missing. The brand isn't ready for autonomous posting yet — escalate per Step 3's fallback policy rather than silently proceeding.
 - **Paths look wrong (e.g. `foundation/` not found)** — the deployment's `GDRIVE_DEFAULT_ROOT_ID` must point at the Shared Drive root, where `foundation/` and the engine folders (`atobiv2-content-engine/`, `gtm-engine/`) live. If it points at a single engine folder or a different drive, the shared `foundation/` tree is unreachable — fix the env var.
 - **Post sounds generic / not on-brand** — Step 3's audit was skipped or rushed. Re-load the style guide content (don't rely on memory), re-audit each rule, regenerate. Don't publish until the audit passes.

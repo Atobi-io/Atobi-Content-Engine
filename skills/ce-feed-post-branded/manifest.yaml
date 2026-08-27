@@ -1,5 +1,5 @@
 id: ce-feed-post-branded
-version: 0.2.0
+version: 0.3.0
 owner: atobi-content-engine
 description: |
   Compose and publish a feed post in a brand's voice. Given a brand + topic/brief,
@@ -26,11 +26,23 @@ runtime:
 inputs:
   tenant:
     type: string
+    optional: true
     description: |
       Atobi tenant slug — passed to post_feed_post to tell the backend which
-      tenant the post lands in. Note: in an engine-per-publisher world this
-      will eventually come from foundation/publisher/publisher-commercial-config.yaml,
-      but until that artefact exists the skill still takes it as input.
+      tenant the post lands in. Optional when the resolved Publisher's
+      foundation/publishers/<publisher>/config.yaml declares a tenant binding
+      (the config supplies the default; an explicit input overrides it).
+      Required when no publisher config names a tenant.
+  publisher:
+    type: string
+    optional: true
+    description: |
+      Publisher slug — matches foundation/publishers/<publisher>/ at the Shared
+      Drive root. Optional. If omitted, the skill reuses the publisher already
+      chosen this session, or lists foundation/publishers/ and picks the single
+      publisher automatically (1), asks the user to choose (2+), or proceeds
+      with no publisher (0 — the tenant input is then required). If supplied
+      but not found, the skill lists available publishers and asks.
   brand:
     type: string
     optional: true

@@ -1,10 +1,12 @@
 id: ce-learning-article-creator
-version: 0.5.0
+version: 0.6.0
 owner: atobi-content-engine
 description: |
   Create a single, highly engaging training or learning article directly on the
   Atobi platform via the GCS API. Decides between a Journey (shownAs: training)
-  and a regular article (shownAs: article), loads brand voice + publisher voice
+  and a regular article (shownAs: article), resolves the Publisher like the
+  brand (explicit input, or discovery under foundation/publishers/ + ask when
+  2+; session-sticky), loads brand voice + publisher voice
   from Drive when present, and assembles a block-tree payload (text / image /
   multi_choice / yes_no_task / open_question_task / simple_task). If publishing
   immediately, fetches channels and audiences and asks the operator to pick the
@@ -46,6 +48,16 @@ inputs:
       Brand slug — matches foundation/brands/<brand>/ at the Shared Drive root.
       Optional. If omitted, the skill lists brands under foundation/brands/
       and either picks the only one, asks the user to choose, or fails clearly.
+  publisher:
+    type: string
+    optional: true
+    description: |
+      Publisher slug — matches foundation/publishers/<publisher>/ at the Shared
+      Drive root. Optional. If omitted, the skill reuses the publisher already
+      chosen this session, or lists foundation/publishers/ and picks the single
+      publisher automatically (1), asks the operator to choose (2+), or
+      proceeds with no publisher layer (0). If supplied but not found, the
+      skill lists available publishers and asks which was meant.
   audience_description:
     type: string
     optional: true
@@ -66,8 +78,9 @@ inputs:
       variant), "educational" (concept-driven upskill, not product-tied),
       "campaign-awareness" (partnership / community / seasonal —
       shownAs:"article", no completion), "compliance" (mandatory
-      policy/process training), or "auto". When foundation/publisher/voice-profile.md
-      is present (Layer 1 voice), the archetype drives the section
+      policy/process training), or "auto". When the resolved Publisher's
+      foundation/publishers/<publisher>/voice-profile.md is present (Layer 1
+      voice), the archetype drives the section
       template used in Step 5. If omitted, Step 1 asks the operator.
   format:
     type: string
@@ -106,8 +119,10 @@ inputs:
     optional: true
     description: |
       Program drop this article belongs to — either a full Drive path
-      ("programs/<program>/drops/<slug>/") or the "<program>/<slug>"
-      shorthand. When given, Step 7b writes a published.yaml backlink
+      ("<engine_folder>/programs/<program>/drops/<slug>/") or the
+      "<program>/<slug>" shorthand (expanded using the engine_folder from
+      the resolved Publisher's config.yaml). When given, Step 7b writes a
+      published.yaml backlink
       (article id, shownAs, status, channel/audiences, date) into that
       drop folder after gcs_create_article succeeds, linking the Drive
       artefact trail to the live article so ce-reporting's program: mode

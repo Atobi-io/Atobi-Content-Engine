@@ -1,15 +1,17 @@
 id: ce-article-producer
-version: 0.2.0
+version: 0.3.0
 owner: atobi-content-engine
 description: |
-  Produce a brand-voiced markdown article for a specific brand inside this
-  Publisher's content engine. Loads the brand voice profile (and any seeded
-  fidelity / glossary) from foundation/brands/<brand>/, generates the article
-  in the loaded voice, and saves the output to programs/<program>/drops/<slug>/.
-  foundation/ lives at the Shared Drive root (shared across workspace engines);
-  program outputs are engine-relative under the Publisher's content-engine folder.
-  Optionally auto-calls ce-quiz-generator. Triggers on
-  phrases like "write an article about X for <brand>", "produce article for <brand>".
+  Produce a brand-voiced markdown article for a specific brand and Publisher.
+  Resolves the Publisher like the brand (explicit input, or discovery under
+  foundation/publishers/ + ask when 2+; session-sticky), loads the brand voice
+  profile (and any seeded fidelity / glossary) from foundation/brands/<brand>/,
+  generates the article in the loaded voice, and saves the output to
+  <engine_folder>/programs/<program>/drops/<slug>/ (engine_folder from the
+  Publisher's config.yaml). foundation/ lives at the Shared Drive root (shared
+  across workspace engines and Publishers). Optionally auto-calls
+  ce-quiz-generator. Triggers on phrases like "write an article about X for
+  <brand>", "produce article for <brand>".
 
 scopes:
   - atobi-mcp:admin              # gdrive_* and memory tools are gated by this scope
@@ -26,6 +28,16 @@ tools:
 runtime:
   - claude-code
 inputs:
+  publisher:
+    type: string
+    optional: true
+    description: |
+      Publisher slug — matches foundation/publishers/<publisher>/ at the Shared
+      Drive root. Optional — if omitted, the skill reuses the publisher already
+      chosen this session, or lists foundation/publishers/ and picks the single
+      publisher automatically (1), asks the user to choose (2+), or proceeds
+      with no publisher layer (0). If supplied but not found, the skill lists
+      available publishers and asks which was meant.
   brand:
     type: string
     optional: true

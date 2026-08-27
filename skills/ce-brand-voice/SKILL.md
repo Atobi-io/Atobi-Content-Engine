@@ -15,7 +15,7 @@ description: >
   a producer run stopped because the profile is missing.
 allowed-tools: gdrive_find_by_path, gdrive_list_folder, gdrive_search_files, gdrive_read_file, gdrive_create_folder, gdrive_upload_file, gdrive_trash_file, verify_connection, gcs_list_channels, gcs_list_articles, gcs_get_article, gcs_list_comments, rc_list_achievements, search_memory, store_memory, WebFetch, WebSearch
 metadata:
-  version: "0.1.0"
+  version: "0.2.0"
   phases: [intake]
 ---
 
@@ -45,7 +45,7 @@ Up to three files in `foundation/brands/<brand>/`, uploaded only after operator 
 | Brand website + social media (`WebFetch`/`WebSearch`) | scoped | Brand copy, headline style, product lines, collaborations, tone in the wild (template §1, §3–§6, §8). |
 | `source-material/` guideline docs + `*.extract.md` | full / section | Brand book / tone-of-voice docs (strongest tier) and `ce-asset-intake` extracts — how the brand talks about itself. |
 | `search_memory` playbook + insights | best-effort | Operator corrections ("stop saying game-changer for Hoka") are voice mistakes already paid for once. |
-| `foundation/publisher/voice-profile.md` | reference | Defines the layering boundary — what NOT to put in the brand file (Step 6). Skip silently if absent. |
+| `foundation/publishers/<publisher>/voice-profile.md` | reference | Defines the layering boundary — what NOT to put in the brand file (Step 6). Resolve the publisher like the brand (session-sticky; reuse this session's choice, list `foundation/publishers/` and ask when 2+, skip the layer when 0). Skip silently if absent. |
 
 ## Skill relationships
 
@@ -108,7 +108,7 @@ search_memory({ "query": "<brand>", "tier": "insight", "function_id": "content-e
 
 Playbook **Locked** / **Tone / voice** bullets and voiced-preference insights are corrections already paid for once — a profile that omits them guarantees the same correction gets made again. Fold them in at high confidence (mostly into §9 Do's and Don'ts and §4 Avoid).
 
-**4f — The publisher layer (boundary, not content).** Read `foundation/publisher/voice-profile.md` if present — not to copy from, but to know what to leave OUT (see Step 6's layering rule).
+**4f — The publisher layer (boundary, not content).** Resolve the publisher (same routine as brand discovery, against `foundation/publishers/`; reuse the session's choice, ask when 2+, skip when 0) and read `foundation/publishers/<publisher>/voice-profile.md` if present — not to copy from, but to know what to leave OUT (see Step 6's layering rule).
 
 If the evidence is thin across 4a–4e (no tenant presence yet, no guideline docs, few extracts), say so plainly and lean harder on Step 5 — a profile derived from two spec sheets is mostly guesswork and must be marked as such.
 

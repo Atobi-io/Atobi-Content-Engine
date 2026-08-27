@@ -1,5 +1,5 @@
 id: ce-brand-voice
-version: 0.1.0
+version: 0.2.0
 owner: atobi-content-engine
 description: |
   Author or refresh the brand voice triplet in foundation/brands/<brand>/ —
@@ -45,6 +45,15 @@ inputs:
       Optional — if omitted, the skill lists brands at foundation/brands/ and asks.
       For a brand with no folder yet (fresh onboarding), the skill creates
       foundation/brands/<brand>/ after explicit confirmation.
+  publisher:
+    type: string
+    optional: true
+    description: |
+      Publisher slug — matches foundation/publishers/<publisher>/ at the Shared
+      Drive root. Optional. Used only to read the publisher voice profile as
+      the layering boundary (what NOT to put in the brand file). If omitted,
+      the skill reuses the publisher already chosen this session, or discovers
+      under foundation/publishers/ (1 → use it; 2+ → ask; 0 → skip the layer).
   sources:
     type: string
     optional: true
