@@ -13,9 +13,9 @@ description: >
   or any Atobi content whose primary purpose is to teach something to staff —
   e.g. "create a training article on X", "build a learning module about Y",
   "make a journey on Z", "create a knowledge check for staff on W".
-allowed-tools: gdrive_find_by_path, gdrive_read_file, gdrive_list_folder, gdrive_create_folder, gdrive_upload_file, gdrive_trash_file, gcs_list_channels, gcs_get_channel, us_list_audiences, gcs_create_article, search_memory, store_memory, update_memory, list_memory
+allowed-tools: gdrive_find_by_path, gdrive_read_file, gdrive_list_folder, gdrive_create_folder, gdrive_upload_file, gdrive_trash_file, gcs_list_channels, gcs_get_channel, us_list_audiences, gcs_create_article, search_memory, store_memory, update_memory, list_memory, verify_connection
 metadata:
-  version: "0.6.0"
+  version: "0.6.1"
   phases: [delivery]
 ---
 
@@ -59,7 +59,7 @@ An article created on the Atobi platform — either as a `draft` (default) or `p
 - **Often follows**: a higher-level learning-plan or campaign skill (not built yet); manual operator request for a training piece
 - **Often precedes**: `ce-review` (post-creation compliance check); `ce-reporting` (reads the Step 7b `published.yaml` backlink to measure program drops)
 - **Related**:
-  - `ce-article-producer` — sibling. Produces brand-voiced **markdown** in Google Drive for human review. This skill produces **live Atobi articles** via the GCS API. Use `ce-article-producer` when the output is a Drive drop for review; use this skill when the output is the platform itself and the goal is learning.
+  - `ce-article-producer` → `ce-review` → `ce-publish` — the **drop flow**. Produces a markdown drop in Drive, gets an independent review and human approval, then `ce-publish` writes it to the platform. Use it for anything a brand or retailer signs off before it exists on Atobi. This skill is the **short flow**: topic → draft (or live) article directly on the platform, no drop, no gate; `ce-review <article id>` is available afterwards and `ce-update-article` applies fixes. Use it for internal or low-stakes content where the platform preview is the review surface.
   - `ce-quiz-generator` — sibling. Generates YAML quiz blocks for content saved elsewhere. This skill embeds knowledge checks **inline** as native Atobi block-tree task blocks instead.
 
 ## Step 0: Recall the brand playbook (memory)
@@ -650,7 +650,10 @@ channel_id: <id, or omit for drafts>
 channel_name: "<name, or omit for drafts>"
 audience_ids: [<ids, or omit for drafts>]
 published_at: "<YYYY-MM-DD>"
-published_by: ce-learning-article-creator v0.6
+published_by: ce-learning-article-creator v0.6.1
+approved_by: "<operator email from verify_connection, or omit>"
+approved_at: "<YYYY-MM-DD>"
+review_verdict: n/a           # short flow — no drop review gate
 ```
 
 Drafts get the backlink too (`status: draft`, channel/audience fields omitted) — the id link is what matters; `ce-reporting`'s publication check reads live state anyway.

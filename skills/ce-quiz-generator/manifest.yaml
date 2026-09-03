@@ -1,5 +1,5 @@
 id: ce-quiz-generator
-version: 0.1.0
+version: 0.1.1
 owner: content-engine
 description: |
   Generate quiz questions, knowledge checks, and assessment actions for Atobi

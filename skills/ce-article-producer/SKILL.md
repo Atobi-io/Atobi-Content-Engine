@@ -9,7 +9,7 @@ description: >
   ce-quiz-generator. Use when asked "write an article about X for a brand".
 allowed-tools: gdrive_find_by_path, gdrive_read_file, gdrive_search_files, gdrive_list_folder, gdrive_create_folder, gdrive_upload_file, search_memory, store_memory, update_memory
 metadata:
-  version: "0.3.0"
+  version: "0.4.0"
   phases: [delivery]
 ---
 
@@ -27,10 +27,11 @@ A markdown article saved to the resolved Publisher's `programs/` tree.
   - `<engine_folder>` from the resolved Publisher's `config.yaml` (Step 1b), e.g. `atobiv2-content-engine`
   - `<program>` from the `program` input; defaults to `_adhoc` for one-off articles not part of a coordinated arc
   - `<slug>` derived from the topic (lowercase, hyphen-separated, ≤60 chars)
-  - The drop folder is the natural place for adjacent artefacts the doc envisions (`brief.yaml`, `assets/`, `drafts/`, `translations/`, etc.) — v0 of this skill only produces the article markdown; richer drops come with later skills.
+  - The drop follows the contract in `../ce-publish/references/drop-format.md`: `<slug>.md` (this skill), `review.md` (`ce-review`), `published.yaml` (`ce-publish`), optional `assets/` + `CREDITS.md`. This skill writes only `<slug>.md`. No `build.yaml`, no `knowledge-check.yaml`, no self-audit anywhere in the drop.
 - **Returned**: the Drive file id, web view link, and the in-Drive path so the caller (human or upstream skill) can locate it
 - **Side effects**: may create intermediate folders (`programs/`, `<program>/`, `drops/`, `<slug>/`) if missing
 - **Idempotency**: re-running with the same `topic` (same slug) overwrites the existing article (prior one is soft-deleted before upload). The response includes the prior version's id so the caller can recover from trash if needed.
+- **Downstream**: the drop is consumed by `ce-review` (gate) and then `ce-publish` (platform write). Content that needs no sign-off before it exists on the platform should use `ce-learning-article-creator` instead — the short flow.
 
 ## Context needs
 
@@ -196,14 +197,38 @@ Useful candidates: `audience-profile.md`, `content-style.md`, `fidelity-rules.md
 
 ## Step 6: Draft the article
 
-Write the article in markdown. Structure:
+Write the drop as markdown to the contract in `../ce-publish/references/drop-format.md` — read that file now; the shape below is a summary, the reference is authoritative.
 
-1. **H1 title** — derived from the topic, in the brand's voice (voice rules apply to the title too).
-2. **Lede** — 1-2 sentences. Lead with the reader's situation (per the voice profile's "Do's").
-3. **Body** — 3-5 sections with H2 headings. Each section grounded in either a product fact, a customer scenario, or a strategic point pulled from the loaded context. Cite specifics over generalities.
-4. **Close** — a concrete next action or hook for the reader's job (e.g. for retail staff: "Try this opener with your next customer").
+**Frontmatter** — exactly these nine keys, nothing else:
 
-Target length per `length` input: `short` ~300 words, `standard` ~600, `long` ~1000. The length is a target, not a quota — under is fine, padding to hit a count violates most brand voices.
+```yaml
+---
+brand: <brand>
+publisher: <publisher>
+program: <program>
+slug: <slug>
+archetype: <product-launch | refresh | family-series | educational | campaign-awareness | compliance>
+shown_as: <training | article>
+cover: <filename.jpg>           # the image the operator will supply as cover
+voice_loaded: [<relative paths of every voice/fidelity/glossary file loaded in Step 3>]
+sources: [<extract filenames loaded in Step 4>]
+---
+```
+
+Pick `archetype` from the topic (campaign window → `product-launch`; new generation, no campaign → `refresh`; family overview → `family-series`; non-product skill → `educational`; partnership/seasonal → `campaign-awareness`; policy → `compliance`). `shown_as` follows: `campaign-awareness` → `article`; everything else → `training`. If either is genuinely undecidable, leave the key out — `ce-publish` will ask. `voice_loaded` and `sources` are facts about inputs, never assessments.
+
+**Body**, in this order:
+
+1. `## Status` — first. Bullet list of open questions the reviewer must resolve (unconfirmed facts, missing assets, claims needing sign-off). Empty list if none. This is the first thing a reviewer reads.
+2. `# Title` — one H1, in the brand's voice (voice rules apply to titles too).
+3. Lede — 1–2 sentences leading with the reader's situation.
+4. `## Section` × 3–5 — each grounded in a product fact, a customer scenario, or a strategic point from the loaded context. In a Journey each becomes a section; keep them self-contained.
+5. Images — `![alt](filename.jpg)` alone on a line where an image belongs; italic caption on the next line. Name files descriptively; the operator supplies them at publish.
+6. Close — a concrete next action for the reader's job.
+
+Target length per `length`: `short` ~300 words, `standard` ~600, `long` ~1000. A target, not a quota.
+
+**Never in the body**: YAML, fenced code, tables of rules, audit results. The drop is the deliverable; the reviewer must be able to read it top to bottom as prose.
 
 ## Step 7: Apply the voice layers — audit line-by-line
 
@@ -224,15 +249,31 @@ Re-read the voice profile loaded in Step 3 (plus fidelity / glossary / Publisher
 
 This is the step most likely to drift on a first pass — be explicit, list each rule, and verify line-by-line.
 
-## Step 8: (Optional) Embed quizzes
+**This audit is internal.** It shapes the draft; it never appears in the drop — not as a table, not as frontmatter, not as a checklist. The only audit in a drop is `review.md`, written independently by `ce-review`. A producer marking its own homework in the deliverable competes with the real review for the reader's trust.
+
+## Step 8: (Optional) Knowledge checks
 
 If `include_quizzes=true`, call `ce-quiz-generator` with:
 
 - `source` = the article markdown produced in Step 6
-- `brand_voice` = the brand voice profile content (so the quiz inherits voice)
-- distribution = "article" (1-2 actions total per the quiz skill's distribution rules)
+- `brand_voice` = the brand voice profile content
+- distribution = "article" (1–2 actions total per the quiz skill's distribution rules)
 
-Embed the returned YAML block at the end of the article under a `## Knowledge check` heading.
+The generator returns YAML. **Do not embed the YAML.** Render each question into the readable syntax in `../ce-publish/references/drop-format.md § Knowledge check syntax`, inside the section it tests, under a `### Knowledge check` heading:
+
+```markdown
+### Knowledge check
+
+**Q:** <question text>
+- [ ] <distractor>
+- [x] <correct option>
+- [ ] <distractor>
+> Feedback: <feedback, if the generator supplied one>
+```
+
+Mapping from the generator's YAML: `type: quiz` → `**Q:**`; `type: poll` → `**Poll:**` (no `[x]`); `type: yes_no` → `**Yes/No:**`; `type: open_question` → `**Open:**` (no options). `correct: <index>` marks that option `[x]`. `feedback:` → `> Feedback:`.
+
+Option text, question text and feedback are copy the reader sees in the brand's name. Run Step 7's voice audit over them too — a first-person slip in a distractor is the same failure as one in a paragraph.
 
 ## Step 9: Save the article
 

@@ -7,7 +7,7 @@ Claude skills that turn brand source material into published learning content on
 
 ## What's in the repo
 
-- **One plugin, eleven skills** covering the full content pipeline: intake → voice → create → review → publish → report.
+- **One plugin, twelve skills** covering the full content pipeline: intake → voice → create → review → publish → report.
 - A **plugin marketplace** manifest, so Claude Code users install and update with two commands.
 - Skills in the open [Agent Skills](https://agentskills.io) `SKILL.md` format, so they also work in OpenAI Codex CLI, Cursor, Gemini CLI, and other agents that adopted the standard.
 
@@ -137,6 +137,7 @@ Then ask: **"Verify my Atobi connection"** and confirm the tenant named in the r
 | [ce-quiz-generator](skills/ce-quiz-generator) | `/ce-quiz-generator` | Delivery | Knowledge checks and assessment actions |
 | [ce-feed-post-branded](skills/ce-feed-post-branded) | `/ce-feed-post-branded` | Delivery | Composes and publishes brand-voiced feed posts |
 | [ce-review](skills/ce-review) | `/ce-review` | Delivery | Independent brand-compliance audit before publish |
+| [ce-publish](skills/ce-publish) | `/ce-publish` | Delivery | Reviewed Drive drop → article on Atobi; gate on review.md, records approval |
 | [ce-update-article](skills/ce-update-article) | `/ce-update-article` | Delivery | Safe fetch → merge → write edits to live articles |
 | [ce-reporting](skills/ce-reporting) | `/ce-reporting` | Delivery | Post-publish performance report (the loop-closer) |
 | [ce-remember](skills/ce-remember) | `/ce-remember` | Delivery | Captures standing operator preferences to memory |
