@@ -1,0 +1,67 @@
+id: ce-publish
+version: 0.1.0
+owner: atobi-content-engine
+description: |
+  Take a reviewed markdown drop from Drive and create (or update, while still a
+  draft) the article on the Atobi platform. Gate: review.md must exist with
+  verdict pass or pass-with-notes; running this skill is the human approval and
+  is recorded in published.yaml. Parses the drop per references/drop-format.md
+  (sections, images, knowledge checks in the readable list syntax), shows the
+  block plan and stops for confirmation, uploads operator-supplied images via
+  file slots, asks status/channel/audience, writes the article, then writes
+  published.yaml. Refuses on format errors and never edits the drop. Use when
+  asked to "publish the <slug> drop", "push the approved drop to Atobi",
+  "create the article from drops/<slug>", or "/ce-publish".
+
+scopes:
+  - atobi-mcp:admin              # gdrive_* and memory tools are gated by this scope
+tools:
+  - gdrive_find_by_path          # resolve the drop folder and publisher config
+  - gdrive_list_folder           # list the drop folder (review.md, published.yaml)
+  - gdrive_read_file             # read <slug>.md, review.md, published.yaml, config.yaml
+  - gdrive_upload_file           # write published.yaml
+  - gdrive_trash_file            # replace a prior published.yaml
+  - gcs_get_article              # detect update mode / live state; fetch for updatedAt
+  - gcs_create_article           # create mode
+  - gcs_update_article           # update mode (draft only; full block-list replace)
+  - gcs_create_file_slot         # image upload slots (bytes go via direct PUT)
+  - gcs_list_channels            # publish-time channel pick
+  - gcs_get_channel              # feed-channel viewerAudiences intersection check
+  - us_list_audiences            # publish-time audience pick
+  - search_memory                # brand playbook (best-effort, for the report header)
+  - store_memory                 # publish event; forced-override insight
+  - verify_connection            # operator identity for approved_by
+runtime:
+  - claude-code                  # image upload needs a shell for the PUT
+inputs:
+  drop:
+    type: string
+    optional: false
+    description: |
+      The drop to publish: full Drive path
+      (<engine_folder>/programs/<program>/drops/<slug>/), the <program>/<slug>
+      shorthand, or a local folder path for dry-runs against tests/.
+  status:
+    type: string
+    optional: true
+    description: |
+      draft | published. Asked if omitted; default draft. Channel and audiences
+      are only asked when published.
+  publisher:
+    type: string
+    optional: true
+    description: |
+      Publisher slug under foundation/publishers/. Session-sticky like the other
+      content-engine skills; discovered and asked if omitted.
+  images:
+    type: string
+    optional: true
+    description: |
+      Local directory holding every image the drop references (cover + inline),
+      by exact filename. Asked per missing file if omitted.
+  force:
+    type: boolean
+    optional: true
+    description: |
+      Override a missing or failed review.md. The override and the operator's
+      reason are written to memory as a user_explicit insight.

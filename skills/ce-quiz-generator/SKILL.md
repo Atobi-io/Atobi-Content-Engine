@@ -9,7 +9,7 @@ description: >
   [topic]", or auto-called by ce-article-producer and ce-journey-producer during
   production.
 metadata:
-  version: "0.1.0"
+  version: "0.1.1"
   phases: [delivery]
 ---
 
@@ -22,6 +22,7 @@ Generate scenario-based knowledge checks for Atobi content that test whether sto
 A set of quiz actions embedded in the article/journey payload, ready to publish through the Atobi platform.
 
 - **Format**: YAML blocks describing one action each — `quiz`, `open_question`, `yes_no`, or `poll`.
+- **For Drive drops**: the calling producer renders this YAML into the readable knowledge-check syntax in `../ce-publish/references/drop-format.md` — YAML never appears in a drop body. This skill's output format is unchanged.
 - **Distribution**: 1–3 actions per section for journeys (required for unlock), 1–2 actions total for articles.
 - **Difficulty curve**: easy → medium → hard across sections in journeys.
 - **Feedback**: every quiz answer carries a teaching feedback line.

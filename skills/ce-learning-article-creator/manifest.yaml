@@ -1,5 +1,5 @@
 id: ce-learning-article-creator
-version: 0.6.0
+version: 0.6.1
 owner: atobi-content-engine
 description: |
   Create a single, highly engaging training or learning article directly on the
@@ -32,6 +32,7 @@ tools:
   - update_memory                # Step 0b — merge promoted signal into the existing brand playbook in place
   - store_memory                 # Step 0b seed playbook (knowledge) + Step 9 append events/preferences (insight)
   - list_memory                  # Step 0b — optional browse of recent brand insights
+  - verify_connection            # operator identity for approved_by
 runtime:
   - claude-code
 inputs:

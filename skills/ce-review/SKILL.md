@@ -9,13 +9,13 @@ description: >
   voice, audience fit, and structure/quiz quality. Produces a severity-tagged
   findings report (Critical/High/Medium/Low/Info) with an overall
   pass / pass-with-notes / fail verdict. Report-only: fixes go back through
-  the producer or ce-update-article. Use when asked to "review the [slug]
-  drop", "check article [id] against the [brand] voice", "run brand
+  the producer or ce-update-article. Use when asked to "review the <slug>
+  drop", "check article <id> against the <brand> voice", "run brand
   compliance on this before it ships", or as the check step after any
   producer run.
 allowed-tools: gdrive_find_by_path, gdrive_list_folder, gdrive_search_files, gdrive_read_file, gdrive_upload_file, gdrive_trash_file, gcs_get_article, search_memory, store_memory
 metadata:
-  version: "0.2.0"
+  version: "0.3.0"
   phases: [quality]
 ---
 
@@ -51,7 +51,7 @@ A severity-tagged findings report with an overall verdict:
 
 - **Phase**: quality
 - **Often follows**: `ce-article-producer`, `ce-learning-article-creator`, `ce-feed-post-branded` — review their output before it moves on; also `ce-update-article` (re-review after a fix)
-- **Often precedes**: human review/approval (CaaS Step 5), publish, `ce-update-article` (applying accepted findings to a live article)
+- **Often precedes**: human approval (CaaS Step 5), `ce-publish` (reads this skill's `review.md` verdict as its gate — `pass` / `pass-with-notes` proceed, `fail` blocks), `ce-update-article` (applying accepted findings to a live article)
 - **Related**: `ce-brand-voice` (authors the criteria this skill enforces; recurring violations feed its refresh mode); `ce-quiz-generator` (its conventions are the quiz-quality criteria); `ce-asset-intake` (extracts are the grounding evidence)
 
 ## Step 1: Resolve the target
@@ -85,11 +85,11 @@ Work through the content line-by-line (blocks and actions included, for live art
 
 **4b — Factual grounding (Critical for contradictions, High for unsourced).** Every spec, number, price, and product fact traces to a loaded source: `gdrive_search_files` the brand's source material for the products the content mentions and load the matching extracts. A fact that **contradicts** a source is Critical; a fact with **no source** is High ("unverifiable — confirm or cut"); prices and dated claims deserve extra suspicion. This dimension is why `ce-asset-intake` extracts matter — with no sources loaded, say plainly that grounding could not be verified.
 
-**4c — Voice (High for Don't violations, Medium for drift).** Audit against the profile: §9 Do's and Don'ts line-by-line (each Don't violated is a High); §4 Vocabulary (Avoid terms present → High; "use carefully" terms outside their context → Medium); §3 tone dials, headline formula, person, sentence length (drift → Medium); playbook **Locked** bullets (violation → High — the operator already corrected this once). Layering: where the brand file is silent on tone/structure, the publisher profile's rules apply.
+**4c — Voice (High for Don't violations, Medium for drift).** Audit against the profile: §9 Do's and Don'ts line-by-line (each Don't violated is a High); §4 Vocabulary (Avoid terms present → High; "use carefully" terms outside their context → Medium); §3 tone dials, headline formula, person, sentence length (drift → Medium); playbook **Locked** bullets (violation → High — the operator already corrected this once). Layering: where the brand file is silent on tone/structure, the publisher profile's rules apply. **Quiz and poll copy is in scope**: question text, every option (correct and distractor), and feedback lines are copy the reader sees in the brand's name. Audit them under this dimension line by line — never read a knowledge check only as an answer key. A first-person slip in a distractor is a High, same as in a paragraph.
 
-**4d — Audience fit (Medium).** Against §2 Staff Personas: register and technical depth match the persona's knowledge level; content answers what *blocks* them and speaks to what *motivates* them; mobile-readability — scannable paragraphs, front-loaded value, length justified for phone-on-the-floor reading.
+**4d — Audience fit (Medium).** Against §2 Staff Personas: register and technical depth match the persona's knowledge level; content answers what *blocks* them and speaks to what *motivates* them; mobile-readability — scannable paragraphs, front-loaded value, length justified for phone-on-the-floor reading. Includes knowledge-check copy: an option that assumes the reader works for the brand, or uses register the persona wouldn't, is an audience finding.
 
-**4e — Structure & quiz quality (severity varies).** Format matches intent (`shownAs`, archetype conventions for live articles; drop template for markdown). Quizzes/knowledge checks: **every answer key verifiably correct against the loaded sources (wrong answer key = Critical — it trains staff wrong at scale)**; distractors plausible; questions scenario-based per `ce-quiz-generator` conventions rather than trivia recall.
+**4e — Structure & quiz quality (severity varies).** Format matches intent (`shownAs`, archetype conventions for live articles; drop template for markdown). Quizzes/knowledge checks: **every answer key verifiably correct against the loaded sources (wrong answer key = Critical — it trains staff wrong at scale)**; distractors plausible; questions scenario-based per `ce-quiz-generator` conventions rather than trivia recall. **Markdown drops are also checked against the drop contract** in `../ce-publish/references/drop-format.md`: frontmatter is exactly the nine allowed fields (an extra field — especially any self-audit — is a Medium: "assessments belong in review.md"), `## Status` is first in the body, one H1, knowledge checks use the readable marker syntax with valid option counts and correct markers, no YAML or code in the body. Each breach is a Medium; `ce-publish` will refuse the drop until fixed, so catching it here saves a round-trip.
 
 ## Step 5: Compose the report
 
