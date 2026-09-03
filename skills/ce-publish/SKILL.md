@@ -46,7 +46,7 @@ review_verdict: <pass|pass-with-notes|forced>
 
 - **Returned**: article id, web link (`https://<tenant>.atobi.io/articles/<id>`), status, mode (create/update), drop path, warnings.
 - **Memory**: one `insight` row per run; one extra `user_explicit` row when `force` was used.
-- **Never**: edits to `<slug>.md`, a second `gcs_create_article` call in the same run, a publish past a `fail` verdict without `force`, or an update to an article that is already published.
+- **Never**: edits to `<slug>.md`, a second `gcs_create_article` call in the same run, a publish past a `fail` or stale verdict without `force`, or an update to an article that is already published.
 
 ## Context needs
 
@@ -90,7 +90,8 @@ Resolve the drop folder id via `gdrive_find_by_path`. Not found → stop: "drop 
 
 - Absent → stop. Say: "No review.md in <drop>. Run `ce-review` on this drop first. To publish anyway pass `force: true`; the override is recorded to memory."
 - Present → read it; find the `**Verdict:**` line. `pass` / `pass-with-notes` → continue. `fail` → stop; echo every Critical and High finding's first line; say: "Fix through `ce-article-producer`, re-run `ce-review`, then publish."
-- `force: true` with either stop condition → ask the operator for a one-line reason, then continue. Immediately `store_memory({ tier: "insight", function_id: "content-engine", source_type: "user_explicit", importance: 7, content: "Forced publish of <drop> for <brand> past review (<absent|fail>). Reason: <reason>. Approved by <email>." })`. `review_verdict` in `published.yaml` becomes `forced`.
+- **Stale check.** Compare `modifiedTime` of `review.md` and `<slug>.md` from the `gdrive_list_folder` result (local dry-run: file mtimes). If `<slug>.md` is newer than `review.md`, the review describes text that no longer exists → stop: "review.md (<time>) is older than <slug>.md (<time>): the markdown changed after the last review. Re-run `ce-review`, then publish. To publish anyway pass `force: true`; the override is recorded to memory." A pass on old text is not a pass.
+- `force: true` with any of the three stop conditions (absent, fail, stale) → ask the operator for a one-line reason, then continue. Immediately `store_memory({ tier: "insight", function_id: "content-engine", source_type: "user_explicit", importance: 7, content: "Forced publish of <drop> for <brand> past review (<absent|fail|stale>). Reason: <reason>. Approved by <email>." })`. `review_verdict` in `published.yaml` becomes `forced`.
 
 **Existing article.** Look for `published.yaml`.
 
@@ -195,6 +196,7 @@ If the `published.yaml` upload failed: print the full YAML block verbatim for a 
 
 - **"No review.md"** — the drop was never reviewed. Run `ce-review` first. `force: true` bypasses and is recorded; use it knowingly.
 - **Review says fail but the findings were already fixed in the .md** — `review.md` is stale. Re-run `ce-review` so the file reflects the current markdown; don't `force` past a stale fail.
+- **"review.md is older than <slug>.md"** — the markdown was edited (by the producer or by hand) after the last review. This is the loop working: re-run `ce-review`, then publish. If Drive shows a newer `modifiedTime` on the .md but nothing changed (e.g. a re-upload of identical content), re-review anyway — it is cheap and the trail stays honest.
 - **Format errors on a drop the producer just wrote** — the producer is on a version before 0.4.0 and still embeds YAML / lacks the frontmatter cap. Upgrade the producer, regenerate, or fix the markdown by hand.
 - **"unknown frontmatter field"** — the drop carries a field the contract doesn't allow (often a self-audit). Remove it; assessments belong in `review.md` only.
 - **Article <id> is live** — no override. Use `ce-update-article`, which knows about answer locking.

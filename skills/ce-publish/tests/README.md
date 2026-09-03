@@ -14,3 +14,6 @@ How to run one (Claude Code, no platform writes happen for 03–06 by design;
 
 Fixture 07 references article id `999999`; in a dry-run the skill will report
 "id not found → create mode" — that is the expected outcome offline.
+
+Fixture 08 depends on file modification times, which git does not preserve.
+Run the `touch` line in its expected.md first so the markdown is newer than review.md.
