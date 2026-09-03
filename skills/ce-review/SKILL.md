@@ -9,8 +9,8 @@ description: >
   voice, audience fit, and structure/quiz quality. Produces a severity-tagged
   findings report (Critical/High/Medium/Low/Info) with an overall
   pass / pass-with-notes / fail verdict. Report-only: fixes go back through
-  the producer or ce-update-article. Use when asked to "review the <slug>
-  drop", "check article <id> against the <brand> voice", "run brand
+  the producer or ce-update-article. Use when asked to "review the [slug]
+  drop", "check article [id] against the [brand] voice", "run brand
   compliance on this before it ships", or as the check step after any
   producer run.
 allowed-tools: gdrive_find_by_path, gdrive_list_folder, gdrive_search_files, gdrive_read_file, gdrive_upload_file, gdrive_trash_file, gcs_get_article, search_memory, store_memory

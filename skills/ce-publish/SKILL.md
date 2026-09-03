@@ -7,7 +7,7 @@ description: >
   drop per references/drop-format.md, shows the block plan and stops for
   confirmation, uploads operator-supplied images, asks status/channel/audience,
   writes the article, writes published.yaml. Never edits the drop. Use when asked
-  to "publish the <slug> drop" or "push the approved drop to Atobi".
+  to "publish the [slug] drop" or "push the approved drop to Atobi".
 allowed-tools: gdrive_find_by_path, gdrive_list_folder, gdrive_read_file, gdrive_upload_file, gdrive_trash_file, gcs_get_article, gcs_create_article, gcs_update_article, gcs_create_file_slot, gcs_list_channels, gcs_get_channel, us_list_audiences, search_memory, store_memory, verify_connection
 metadata:
   version: "0.1.0"
